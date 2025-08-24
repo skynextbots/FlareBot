@@ -4,15 +4,109 @@ import { storage } from "./storage";
 import { insertVerificationSessionSchema, insertBotConfigurationSchema, insertAdminSessionSchema, insertKeySubmissionSchema } from "@shared/schema";
 import { z } from "zod";
 
-// Roblox API helper function
-async function checkRobloxUserExists(username: string): Promise<boolean> {
+// Rate limiting and caching for Roblox API
+const robloxApiCache = new Map<string, { result: boolean; timestamp: number }>();
+const robloxApiCalls = new Map<string, number>(); // Track calls per IP/minute
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const RATE_LIMIT_DURATION = 60 * 1000; // 1 minute
+const MAX_CALLS_PER_MINUTE = 10; // Max calls per minute
+
+// Clean up old cache entries and rate limit data
+setInterval(() => {
+  const now = Date.now();
+  
+  // Clean cache
+  Array.from(robloxApiCache.entries()).forEach(([key, value]) => {
+    if (now - value.timestamp > CACHE_DURATION) {
+      robloxApiCache.delete(key);
+    }
+  });
+  
+  // Clean rate limit data
+  Array.from(robloxApiCalls.entries()).forEach(([key, timestamp]) => {
+    if (now - timestamp > RATE_LIMIT_DURATION) {
+      robloxApiCalls.delete(key);
+    }
+  });
+}, 60 * 1000); // Clean every minute
+
+// Roblox API helper function with rate limiting and caching
+async function checkRobloxUserExists(username: string, clientIp?: string): Promise<boolean> {
+  const cacheKey = username.toLowerCase();
+  const rateLimitKey = clientIp || 'default';
+  
+  // Check cache first
+  const cached = robloxApiCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+    console.log(`[Roblox API] Cache hit for username: ${username}`);
+    return cached.result;
+  }
+  
+  // Check rate limit
+  const lastCall = robloxApiCalls.get(rateLimitKey) || 0;
+  const callsInLastMinute = Array.from(robloxApiCalls.entries())
+    .filter(([key, timestamp]) => 
+      key.startsWith(rateLimitKey) && 
+      (Date.now() - timestamp) < RATE_LIMIT_DURATION
+    ).length;
+    
+  if (callsInLastMinute >= MAX_CALLS_PER_MINUTE) {
+    console.log(`[Roblox API] Rate limit exceeded for ${rateLimitKey}`);
+    // Return cached result if available, otherwise assume username exists to avoid blocking
+    return cached ? cached.result : true;
+  }
+  
   try {
-    const response = await fetch(`https://api.roblox.com/users/get-by-username?username=${encodeURIComponent(username)}`);
+    // Record API call for rate limiting
+    robloxApiCalls.set(`${rateLimitKey}_${Date.now()}`, Date.now());
+    
+    // Use the current Roblox Users API v1 endpoint
+    const response = await fetch(`https://users.roblox.com/v1/usernames/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'FlareBot/1.0'
+      },
+      body: JSON.stringify({
+        usernames: [username],
+        excludeBannedUsers: true
+      })
+    });
+    
+    if (!response.ok) {
+      console.error(`[Roblox API] HTTP ${response.status}: ${response.statusText}`);
+      
+      // Fallback to alternative method
+      const fallbackResponse = await fetch(`https://www.roblox.com/users/profile?username=${encodeURIComponent(username)}`);
+      const exists = fallbackResponse.ok && !fallbackResponse.url.includes('UserNotFound');
+      
+      // Cache result
+      robloxApiCache.set(cacheKey, { result: exists, timestamp: Date.now() });
+      console.log(`[Roblox API] Fallback result for ${username}: ${exists}`);
+      return exists;
+    }
+    
     const data = await response.json();
-    return !data.errorMessage && data.Id;
+    const exists = data.data && data.data.length > 0 && data.data[0].id;
+    
+    // Cache the result
+    robloxApiCache.set(cacheKey, { result: exists, timestamp: Date.now() });
+    console.log(`[Roblox API] Verified username ${username}: ${exists}`);
+    
+    return exists;
   } catch (error) {
-    console.error('Roblox API error:', error);
-    return false;
+    console.error('[Roblox API] Connection error:', error);
+    
+    // Return cached result if available
+    if (cached) {
+      console.log(`[Roblox API] Using cached result due to error for ${username}: ${cached.result}`);
+      return cached.result;
+    }
+    
+    // If no cache and error, assume username exists to avoid blocking users
+    // This prevents the verification system from breaking due to API issues
+    console.log(`[Roblox API] Assuming username exists due to API error: ${username}`);
+    return true;
   }
 }
 
@@ -22,8 +116,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { robloxUsername } = insertVerificationSessionSchema.parse(req.body);
       
+      // Get client IP for rate limiting
+      const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+      
       // Check if username exists on Roblox
-      const userExists = await checkRobloxUserExists(robloxUsername);
+      const userExists = await checkRobloxUserExists(robloxUsername, clientIp);
       if (!userExists) {
         return res.status(400).json({ error: "Roblox username not found" });
       }
@@ -38,6 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         robloxUsername: session.robloxUsername,
       });
     } catch (error) {
+      console.error('[Verify Username] Error:', error);
       res.status(400).json({ error: "Invalid request data" });
     }
   });
