@@ -47,6 +47,16 @@ export const keySubmissions = pgTable("key_submissions", {
   createdAt: timestamp("created_at").default(sql`now()`),
 });
 
+export const botStatus = pgTable("bot_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  botName: text("bot_name").notNull().unique(),
+  isInUse: boolean("is_in_use").default(false),
+  currentUser: text("current_user"),
+  sessionStartTime: timestamp("session_start_time"),
+  sessionEndTime: timestamp("session_end_time"),
+  lastUpdated: timestamp("last_updated").default(sql`now()`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -72,6 +82,12 @@ export const insertKeySubmissionSchema = createInsertSchema(keySubmissions).pick
   submittedKey: true,
 });
 
+export const insertBotStatusSchema = createInsertSchema(botStatus).pick({
+  botName: true,
+  isInUse: true,
+  currentUser: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -86,3 +102,6 @@ export type AdminSession = typeof adminSessions.$inferSelect;
 
 export type InsertKeySubmission = z.infer<typeof insertKeySubmissionSchema>;
 export type KeySubmission = typeof keySubmissions.$inferSelect;
+
+export type InsertBotStatus = z.infer<typeof insertBotStatusSchema>;
+export type BotStatus = typeof botStatus.$inferSelect;

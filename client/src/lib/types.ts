@@ -49,3 +49,13 @@ export interface KeySubmission {
   nextIntentTime?: string;
   createdAt: string;
 }
+
+export interface BotStatus {
+  id: string;
+  botName: string;
+  isInUse: boolean;
+  currentUser?: string;
+  sessionStartTime?: string;
+  sessionEndTime?: string;
+  lastUpdated: string;
+}

@@ -289,7 +289,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Key submission not found" });
       }
       
+      // Get the session to find the username
+      const session = await storage.getVerificationSession(approvedSubmission.sessionId!);
+      if (session) {
+        // Set bot as in use
+        await storage.setBotInUse("FlareBot_V1", session.robloxUsername);
+      }
+      
       res.json(approvedSubmission);
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get bot status
+  app.get("/api/bot-status/:botName", async (req, res) => {
+    try {
+      const status = await storage.getBotStatus(req.params.botName);
+      if (!status) {
+        return res.status(404).json({ error: "Bot not found" });
+      }
+      
+      // Check if session has expired
+      if (status.isInUse && status.sessionEndTime && status.sessionEndTime < new Date()) {
+        // Auto-expire the session
+        const updatedStatus = await storage.setBotAvailable(req.params.botName);
+        return res.json(updatedStatus);
+      }
+      
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get all bot statuses
+  app.get("/api/bot-statuses", async (req, res) => {
+    try {
+      const statuses = await storage.getAllBotStatuses();
+      
+      // Check for expired sessions and clean them up
+      for (const status of statuses) {
+        if (status.isInUse && status.sessionEndTime && status.sessionEndTime < new Date()) {
+          await storage.setBotAvailable(status.botName);
+        }
+      }
+      
+      // Get updated statuses
+      const updatedStatuses = await storage.getAllBotStatuses();
+      res.json(updatedStatuses);
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Release bot (when user session ends)
+  app.post("/api/release-bot/:botName", async (req, res) => {
+    try {
+      const updatedStatus = await storage.setBotAvailable(req.params.botName);
+      res.json(updatedStatus);
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }

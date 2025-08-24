@@ -70,7 +70,7 @@ export default function Home() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Bot className="text-white h-4 w-4" />
               </div>
-              <h1 className="text-xl font-medium text-gray-900">FlareBot_V1</h1>
+              <h1 className="text-xl font-medium text-gray-900">FlareBot</h1>
             </div>
             <div className="flex items-center space-x-4">
               <Button

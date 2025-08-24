@@ -24,7 +24,8 @@ export default function GameAccess({ keySubmissionId, onReturnToDashboard }: Gam
       if (diff <= 0) {
         setTimeRemaining("0:00");
         setIsActive(false);
-        // Trigger the next intent here (UUID will be provided later)
+        // Release the bot and trigger the next intent here (UUID will be provided later)
+        fetch('/api/release-bot/FlareBot_V1', { method: 'POST' }).catch(console.error);
         return;
       }
 
@@ -39,7 +40,13 @@ export default function GameAccess({ keySubmissionId, onReturnToDashboard }: Gam
     return () => clearInterval(interval);
   }, []);
 
-  const handleReturnToDashboard = () => {
+  const handleReturnToDashboard = async () => {
+    // Release the bot when user returns to dashboard
+    try {
+      await fetch('/api/release-bot/FlareBot_V1', { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to release bot:', error);
+    }
     onReturnToDashboard();
   };
 

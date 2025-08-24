@@ -3,7 +3,8 @@ import {
   type VerificationSession, type InsertVerificationSession,
   type BotConfiguration, type InsertBotConfiguration,
   type AdminSession, type InsertAdminSession,
-  type KeySubmission, type InsertKeySubmission
+  type KeySubmission, type InsertKeySubmission,
+  type BotStatus, type InsertBotStatus
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -39,6 +40,13 @@ export interface IStorage {
   updateKeySubmission(id: string, updates: Partial<KeySubmission>): Promise<KeySubmission | undefined>;
   approveKeySubmission(id: string): Promise<KeySubmission | undefined>;
   
+  // Bot status methods
+  getBotStatus(botName: string): Promise<BotStatus | undefined>;
+  updateBotStatus(botName: string, updates: Partial<BotStatus>): Promise<BotStatus>;
+  setBotInUse(botName: string, username: string): Promise<BotStatus>;
+  setBotAvailable(botName: string): Promise<BotStatus>;
+  getAllBotStatuses(): Promise<BotStatus[]>;
+  
   // Admin dashboard methods
   getAllSubmissions(): Promise<Array<{
     id: string;
@@ -58,6 +66,7 @@ export class MemStorage implements IStorage {
   private botConfigurations: Map<string, BotConfiguration>;
   private adminSessions: Map<string, AdminSession>;
   private keySubmissions: Map<string, KeySubmission>;
+  private botStatuses: Map<string, BotStatus>;
 
   constructor() {
     this.users = new Map();
@@ -65,6 +74,23 @@ export class MemStorage implements IStorage {
     this.botConfigurations = new Map();
     this.adminSessions = new Map();
     this.keySubmissions = new Map();
+    this.botStatuses = new Map();
+    
+    // Initialize FlareBot_V1 status
+    this.initializeBotStatus();
+  }
+
+  private initializeBotStatus() {
+    const botStatus: BotStatus = {
+      id: "flarebot-v1",
+      botName: "FlareBot_V1",
+      isInUse: false,
+      currentUser: null,
+      sessionStartTime: null,
+      sessionEndTime: null,
+      lastUpdated: new Date(),
+    };
+    this.botStatuses.set("FlareBot_V1", botStatus);
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -280,6 +306,44 @@ export class MemStorage implements IStorage {
     };
     this.keySubmissions.set(id, updatedSubmission);
     return updatedSubmission;
+  }
+
+  async getBotStatus(botName: string): Promise<BotStatus | undefined> {
+    return this.botStatuses.get(botName);
+  }
+
+  async updateBotStatus(botName: string, updates: Partial<BotStatus>): Promise<BotStatus> {
+    const existing = this.botStatuses.get(botName);
+    const updated: BotStatus = {
+      ...existing,
+      ...updates,
+      lastUpdated: new Date(),
+    } as BotStatus;
+    this.botStatuses.set(botName, updated);
+    return updated;
+  }
+
+  async setBotInUse(botName: string, username: string): Promise<BotStatus> {
+    const sessionEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    return this.updateBotStatus(botName, {
+      isInUse: true,
+      currentUser: username,
+      sessionStartTime: new Date(),
+      sessionEndTime,
+    });
+  }
+
+  async setBotAvailable(botName: string): Promise<BotStatus> {
+    return this.updateBotStatus(botName, {
+      isInUse: false,
+      currentUser: null,
+      sessionStartTime: null,
+      sessionEndTime: null,
+    });
+  }
+
+  async getAllBotStatuses(): Promise<BotStatus[]> {
+    return Array.from(this.botStatuses.values());
   }
 }
 
