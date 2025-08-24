@@ -300,12 +300,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
       if (!password.match(passwordRegex)) {
-        return res.status(400).json({ error: "Password does not meet criteria" });
+        return res.status(400).json({ error: "Password must contain at least one uppercase letter, one lowercase letter, and be at least 8 characters long" });
       }
 
-      await storage.updateUser(session.robloxUsername, { password, isPasswordSet: true });
+      // Create or update user with the password
+      let user = await storage.getUserByUsername(session.robloxUsername);
+      if (user) {
+        await storage.updateUser(user.id, { password, isPasswordSet: true });
+      } else {
+        await storage.createUser({ 
+          username: session.robloxUsername, 
+          password, 
+          isPasswordSet: true 
+        });
+      }
+
       res.json({ success: true });
     } catch (error) {
+      console.error('Password setting error:', error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

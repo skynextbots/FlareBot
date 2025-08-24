@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import VerificationForm from "@/components/verification-form";
 import VerificationCode from "@/components/verification-code";
+import PasswordSet from "@/components/PasswordSet";
 import BotSelection from "@/components/bot-selection";
 import BotConfig from "@/components/bot-config";
 import AdminLogin from "@/components/admin-login";
@@ -14,7 +15,7 @@ import type { VerificationSession, BotConfiguration } from "@/lib/types";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [currentStep, setCurrentStep] = useState<"verification" | "code" | "bot-selection" | "config" | "success" | "key-submission" | "game-access">("verification");
+  const [currentStep, setCurrentStep] = useState<"verification" | "code" | "password" | "bot-selection" | "config" | "success" | "key-submission" | "game-access">("verification");
   const [verificationSession, setVerificationSession] = useState<VerificationSession | null>(null);
   const [botConfig, setBotConfig] = useState<BotConfiguration | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -29,6 +30,10 @@ export default function Home() {
   };
 
   const handleCodeVerified = () => {
+    setCurrentStep("password");
+  };
+
+  const handlePasswordSet = () => {
     setCurrentStep("bot-selection");
   };
 
@@ -121,10 +126,20 @@ export default function Home() {
         )}
 
         {currentStep === "password" && verificationSession && (
-          <PasswordSet 
-            sessionId={verificationSession.sessionId} 
-            onPasswordSet={() => setCurrentStep('config')}
-          />
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Set Your Password</h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Create a secure password to protect your account. Your password must be at least 8 characters long and contain both uppercase and lowercase letters.
+              </p>
+            </div>
+            <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
+              <PasswordSet 
+                sessionId={verificationSession.id} 
+                onPasswordSet={handlePasswordSet}
+              />
+            </div>
+          </div>
         )}
 
         {currentStep === "config" && verificationSession && (

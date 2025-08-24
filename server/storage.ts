@@ -250,6 +250,15 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
+  async updateUserByUsername(username: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = Array.from(this.users.values()).find(u => u.username === username);
+    if (!user) return undefined;
+
+    const updatedUser = { ...user, ...updates };
+    this.users.set(user.id, updatedUser);
+    return updatedUser;
+  }
+
   async getVerificationSession(id: string): Promise<VerificationSession | undefined> {
     return this.verificationSessions.get(id);
   }
