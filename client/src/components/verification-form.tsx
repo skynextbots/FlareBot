@@ -41,13 +41,28 @@ export default function VerificationForm({ onSuccess }: VerificationFormProps) {
         robloxUsername: values.robloxUsername,
       });
 
-      const session = await response.json();
-      onSuccess(session);
-      toast({
-        title: "Account verified!",
-        description: "Your Roblox username has been verified successfully.",
-      });
+      if (response.ok) {
+        const data = await response.json();
+        onSuccess({
+          sessionId: data.sessionId,
+          verificationCode: data.verificationCode,
+          expiresAt: data.expiresAt,
+          robloxUsername: data.robloxUsername,
+          isVerified: data.skipVerification || false,
+          skipVerification: data.skipVerification,
+        });
+        toast({
+          title: "Account verified!",
+          description: "Your Roblox username has been verified successfully.",
+        });
+      } else {
+        // Handle cases where the API returns an error status code
+        const errorData = await response.json();
+        const errorMessage = errorData.message || "An error occurred during verification.";
+        setError(errorMessage);
+      }
     } catch (err: any) {
+      // Handle network errors or unexpected exceptions
       const errorMessage = err.message.includes("not found") 
         ? "Roblox username not found. Please check your username and try again."
         : "An error occurred while verifying your account. Please try again.";

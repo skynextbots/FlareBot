@@ -109,24 +109,6 @@ export interface IStorage {
   getActiveMaintenance(): Promise<Maintenance[]>;
   getUpcomingMaintenance(): Promise<Maintenance[]>;
   updateMaintenance(id: string, updates: Partial<Maintenance>): Promise<Maintenance | undefined>;
-
-  // Admin dashboard methods
-  getAllSubmissions(): Promise<Array<{
-    id: string;
-    robloxUsername: string;
-    verificationCode: string;
-    isVerified: boolean;
-    game?: string;
-    mode?: string;
-    additionalSettings?: string;
-    submittedKey?: string;
-    accessKey?: string;
-    keyStatus?: string;
-    sessionStartTime?: Date;
-    sessionEndTime?: Date;
-    createdAt: Date;
-    status: 'pending' | 'verified' | 'failed';
-  }>>;
 }
 
 export class MemStorage implements IStorage {
@@ -250,13 +232,10 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
-  async updateUserByUsername(username: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = Array.from(this.users.values()).find(u => u.username === username);
-    if (!user) return undefined;
-
-    const updatedUser = { ...user, ...updates };
-    this.users.set(user.id, updatedUser);
-    return updatedUser;
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.username === username,
+    );
   }
 
   async getVerificationSession(id: string): Promise<VerificationSession | undefined> {
@@ -686,7 +665,7 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const position = Array.from(this.botQueue.values())
       .filter(q => q.botName === queue.botName && q.status === "waiting").length + 1;
-    
+
     const newQueue: BotQueue = {
       id,
       profileId: queue.profileId || null,
@@ -803,7 +782,7 @@ export class MemStorage implements IStorage {
     const totalUsers = this.userProfiles.size;
     const activeUsers = Array.from(this.userProfiles.values())
       .filter(p => p.lastActiveAt && (Date.now() - p.lastActiveAt.getTime()) < 24 * 60 * 60 * 1000).length;
-    
+
     const botUtilization: Record<string, number> = {};
     Array.from(this.botStatuses.values()).forEach(bot => {
       botUtilization[bot.botName] = bot.isInUse ? 100 : 0;
@@ -811,7 +790,9 @@ export class MemStorage implements IStorage {
 
     const gameCount: Record<string, number> = {};
     Array.from(this.sessionHistory.values()).forEach(session => {
-      gameCount[session.game] = (gameCount[session.game] || 0) + 1;
+      if (session.game) { // Ensure session.game is not undefined
+        gameCount[session.game] = (gameCount[session.game] || 0) + 1;
+      }
     });
 
     const popularGames = Object.entries(gameCount)
@@ -820,7 +801,7 @@ export class MemStorage implements IStorage {
       .slice(0, 5);
 
     const recentSessions = Array.from(this.sessionHistory.values())
-      .filter(s => (Date.now() - s.startTime.getTime()) < 24 * 60 * 60 * 1000).length;
+      .filter(s => s.startTime && (Date.now() - s.startTime.getTime()) < 24 * 60 * 60 * 1000).length;
 
     return {
       totalUsers,

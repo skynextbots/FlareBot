@@ -24,9 +24,14 @@ export default function Home() {
   const [keySubmissionId, setKeySubmissionId] = useState<string>("");
   const [selectedBot, setSelectedBot] = useState<string>("");
 
-  const handleVerificationSuccess = (session: VerificationSession) => {
+  const handleVerificationSuccess = (session: VerificationSession & { skipVerification?: boolean }) => {
     setVerificationSession(session);
-    setCurrentStep("code");
+    if (session.skipVerification) {
+      // Skip to bot selection for existing users
+      setCurrentStep("bot-selection");
+    } else {
+      setCurrentStep("code");
+    }
   };
 
   const handleCodeVerified = () => {
@@ -139,6 +144,18 @@ export default function Home() {
                 onPasswordSet={handlePasswordSet}
               />
             </div>
+          </div>
+        )}
+
+        {currentStep === "bot-selection" && (
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Select Your Bot</h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Choose a bot to configure for your gaming experience.
+              </p>
+            </div>
+            <BotSelection onBotSelected={handleBotSelected} />
           </div>
         )}
 

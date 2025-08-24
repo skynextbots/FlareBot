@@ -184,6 +184,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Roblox username not found" });
       }
 
+      // Check if user already exists with password
+      const existingUser = await storage.getUserByUsername(robloxUsername);
+      if (existingUser && existingUser.isPasswordSet) {
+        // User already has account setup, skip verification
+        const session = await storage.createVerificationSession({ 
+          robloxUsername,
+          isVerified: true // Skip verification process
+        });
+
+        return res.json({
+          sessionId: session.id,
+          verificationCode: session.verificationCode,
+          expiresAt: session.expiresAt,
+          robloxUsername: session.robloxUsername,
+          skipVerification: true, // Flag to indicate verification can be skipped
+        });
+      }
+
       // Create verification session
       const session = await storage.createVerificationSession({ robloxUsername });
 

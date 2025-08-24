@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +12,7 @@ interface BotSelectionProps {
 export default function BotSelection({ onBotSelected }: BotSelectionProps) {
   const [botStatuses, setBotStatuses] = useState<BotStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedBot, setSelectedBot] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBotStatuses();
@@ -32,6 +32,11 @@ export default function BotSelection({ onBotSelected }: BotSelectionProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleBotSelect = (botName: string) => {
+    setSelectedBot(botName);
+    onBotSelected(botName);
   };
 
   if (isLoading) {
@@ -58,16 +63,16 @@ export default function BotSelection({ onBotSelected }: BotSelectionProps) {
 
       <div className="grid gap-4">
         {botStatuses.map((bot) => (
-          <Card 
-            key={bot.botName} 
+          <Card
+            key={bot.botName}
             className={`cursor-pointer transition-all hover:shadow-lg border-2 ${
-              bot.isInUse 
-                ? 'border-red-200 bg-red-50' 
-                : 'border-green-200 bg-white hover:border-primary'
+              bot.isInUse
+                ? 'border-red-200 bg-red-50'
+                : 'border-green-200 hover:border-primary'
             }`}
-            onClick={() => !bot.isInUse && onBotSelected(bot.botName)}
+            onClick={() => !bot.isInUse && handleBotSelect(bot.botName)}
           >
-            <CardContent className="pt-6">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
@@ -80,10 +85,10 @@ export default function BotSelection({ onBotSelected }: BotSelectionProps) {
                     <p className="text-sm text-gray-500">Roblox Automation Bot</p>
                   </div>
                 </div>
-                
+
                 <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
-                  bot.isInUse 
-                    ? 'bg-red-100 text-red-800' 
+                  bot.isInUse
+                    ? 'bg-red-100 text-red-800'
                     : 'bg-green-100 text-green-800'
                 }`}>
                   <div className={`w-2 h-2 rounded-full ${
@@ -124,11 +129,11 @@ export default function BotSelection({ onBotSelected }: BotSelectionProps) {
               )}
 
               {!bot.isInUse && (
-                <Button 
+                <Button
                   className="w-full mt-4 bg-primary hover:bg-primary-dark text-white"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onBotSelected(bot.botName);
+                    handleBotSelect(bot.botName);
                   }}
                 >
                   Select {bot.botName}
