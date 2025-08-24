@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -73,7 +71,7 @@ export default function PasswordSet({ sessionId, onPasswordSet }: PasswordSetPro
         sessionId,
         password: values.password
       });
-      
+
       if (response.ok) {
         toast({
           title: 'Password Set Successfully!',
@@ -260,4 +258,3 @@ export default function PasswordSet({ sessionId, onPasswordSet }: PasswordSetPro
     </div>
   );
 }
-

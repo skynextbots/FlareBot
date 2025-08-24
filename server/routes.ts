@@ -195,7 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         return res.json({
           sessionId: session.id,
-          verificationCode: session.verificationCode,
+          verificationCode: session.verificationCode || existingUser.verificationCode,
           expiresAt: session.expiresAt,
           robloxUsername: session.robloxUsername,
           skipVerification: true, // Flag to indicate verification can be skipped
@@ -283,6 +283,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/set-password", async (req, res) => {
     try {
       const { sessionId, password } = req.body;
+      
+      if (!sessionId || !password) {
+        return res.status(400).json({ error: "Session ID and password are required" });
+      }
+
       const session = await storage.getVerificationSession(sessionId);
       if (!session || !session.isVerified) {
         return res.status(400).json({ error: "Session not found or not verified" });
@@ -301,7 +306,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createUser({ 
           username: session.robloxUsername, 
           password, 
-          isPasswordSet: true 
+          isPasswordSet: true,
+          verificationCode: session.verificationCode
         });
       }
 

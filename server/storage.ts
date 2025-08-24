@@ -232,19 +232,38 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
   async getVerificationSession(id: string): Promise<VerificationSession | undefined> {
     return this.verificationSessions.get(id);
   }
 
   async createVerificationSession(session: InsertVerificationSession): Promise<VerificationSession> {
     const id = randomUUID();
-    const code = `Verify_${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+    
+    // Check if user already has a permanent verification code
+    const existingUser = await this.getUserByUsername(session.robloxUsername);
+    let code: string;
+    
+    if (existingUser && existingUser.verificationCode) {
+      // Use existing permanent code
+      code = existingUser.verificationCode;
+    } else {
+      // Generate new permanent code for this user
+      code = `Verify_${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+      
+      // Store the code permanently with the user
+      if (existingUser) {
+        await this.updateUser(existingUser.id, { verificationCode: code });
+      } else {
+        // Create user with permanent verification code
+        await this.createUser({ 
+          username: session.robloxUsername, 
+          password: null, 
+          isPasswordSet: false,
+          verificationCode: code
+        });
+      }
+    }
+    
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     const newSession: VerificationSession = {
       id,
@@ -252,9 +271,9 @@ export class MemStorage implements IStorage {
       verificationCode: code,
       isVerified: false,
       expiresAt,
-      verificationAttempts: 0, // Initialize attempts
+      verificationAttempts: 0,
       isTimedOut: false,
-      timeoutUntil: null, // Initialize timeoutUntil
+      timeoutUntil: null,
       createdAt: new Date(),
     };
     this.verificationSessions.set(id, newSession);

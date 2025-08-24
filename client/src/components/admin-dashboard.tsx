@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,6 +8,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Users, Clock, Bot, Server, ArrowUp, Copy, ChevronLeft, ChevronRight, User, Key, Settings, Timer, Check, RefreshCw, Trash2, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { DashboardStats, Submission } from "@/lib/types";
+
+// Helper function to format dates (assuming it's defined elsewhere or can be added)
+const formatDate = (dateString: string) => {
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  };
+  return new Date(dateString).toLocaleDateString(undefined, options);
+};
 
 export default function AdminDashboard() {
   const { toast } = useToast();
