@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, Clock, Bot, Server, RefreshCw, Download, Eye, Link, Trash2, ArrowUp, Copy, ChevronLeft, ChevronRight, User, Key, Settings, Timer, Check } from "lucide-react";
+import { Users, Clock, Bot, Server, ArrowUp, Copy, ChevronLeft, ChevronRight, User, Key, Settings, Timer, Check, RefreshCw, Trash2, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { DashboardStats, Submission } from "@/lib/types";
 
@@ -27,13 +27,6 @@ export default function AdminDashboard() {
     toast({
       title: "Refreshed!",
       description: "Dashboard data has been updated.",
-    });
-  };
-
-  const handleExport = () => {
-    toast({
-      title: "Export started",
-      description: "Your data export will be ready shortly.",
     });
   };
 
@@ -83,17 +76,22 @@ export default function AdminDashboard() {
   const handleGenerateLink = async (sessionId: string) => {
     try {
       const response = await fetch(`/api/generate-link/${sessionId}`, { method: 'POST' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate link');
+      }
       const { accessLink } = await response.json();
-      
+
       await navigator.clipboard.writeText(accessLink);
       toast({
         title: "Link generated!",
         description: "Access link copied to clipboard.",
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       toast({
         title: "Link generation failed",
-        description: "An error occurred while generating the link.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -122,7 +120,7 @@ export default function AdminDashboard() {
     const now = new Date();
     const date = new Date(dateString);
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hr ago`;
@@ -131,28 +129,40 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-16 bg-gray-200 rounded"></div>
-              </CardContent>
-            </Card>
-          ))}
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
-  const stats = dashboardData?.stats || {
+  // Handle case where dashboardData might be null but not loading (e.g., initial fetch failed)
+  if (!dashboardData) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <Alert className="max-w-md">
+          <RefreshCw className="h-4 w-4 text-orange" />
+          <AlertDescription>
+            Failed to load dashboard data. Please try refreshing.
+            <Button onClick={handleRefresh} className="mt-2 w-full">
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const stats = dashboardData.stats || {
     activeUsers: 0,
     pendingVerifications: 0,
     botConfigs: 0,
     systemUptime: '0%',
   };
 
-  const submissions = dashboardData?.submissions || [];
+  const submissions = dashboardData.submissions || [];
 
   return (
     <div className="relative">
@@ -537,16 +547,6 @@ export default function AdminDashboard() {
                   <RefreshCw className="mr-1 h-4 w-4" />
                   Refresh
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExport}
-                  className="border-black text-black hover:bg-black hover:text-white"
-                  data-testid="button-export"
-                >
-                  <Download className="mr-1 h-4 w-4" />
-                  Export
-                </Button>
               </div>
             </div>
 
@@ -615,9 +615,9 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => copyToClipboard(submission.robloxUsername, 'Username')}
                             className="hover:bg-orange-light"
                             data-testid={`button-copy-username-${submission.id}`}
@@ -659,16 +659,16 @@ export default function AdminDashboard() {
                 <span className="font-medium">{submissions.length}</span> results
               </div>
               <div className="flex items-center space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   disabled
                   className="border-orange text-orange"
                 >
                   Previous
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="border-orange text-orange hover:bg-orange hover:text-white"
                 >

@@ -371,6 +371,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check admin authentication status
+  app.get("/api/admin/check-auth", async (req, res) => {
+    try {
+      const sessionId = req.headers.authorization?.replace('Bearer ', '');
+      if (!sessionId) {
+        return res.status(401).json({ error: "No session provided" });
+      }
+
+      const session = await storage.getAdminSession(sessionId);
+      if (!session || !session.isActive) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      res.json({ valid: true, username: session.username });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get admin dashboard data
   app.get("/api/admin/dashboard", async (req, res) => {
     try {

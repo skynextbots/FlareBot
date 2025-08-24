@@ -135,7 +135,7 @@ export default function Home() {
             </div>
             <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
               <PasswordSet 
-                sessionId={verificationSession.id} 
+                sessionId={verificationSession.sessionId} 
                 onPasswordSet={handlePasswordSet}
               />
             </div>
