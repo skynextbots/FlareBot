@@ -60,6 +60,16 @@ export const botStatus = pgTable("bot_status", {
   lastUpdated: timestamp("last_updated").default(sql`now()`),
 });
 
+export const accessRequests = pgTable("access_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => verificationSessions.id),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  accessLink: text("access_link"),
+  requestTime: timestamp("request_time").default(sql`now()`),
+  approvalTime: timestamp("approval_time"),
+  createdAt: timestamp("created_at").default(sql`now()`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -91,6 +101,12 @@ export const insertBotStatusSchema = createInsertSchema(botStatus).pick({
   currentUser: true,
 });
 
+export const insertAccessRequestSchema = createInsertSchema(accessRequests).pick({
+  sessionId: true,
+  status: true,
+  accessLink: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -108,3 +124,6 @@ export type KeySubmission = typeof keySubmissions.$inferSelect;
 
 export type InsertBotStatus = z.infer<typeof insertBotStatusSchema>;
 export type BotStatus = typeof botStatus.$inferSelect;
+
+export type InsertAccessRequest = z.infer<typeof insertAccessRequestSchema>;
+export type AccessRequest = typeof accessRequests.$inferSelect;

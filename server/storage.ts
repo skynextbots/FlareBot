@@ -4,7 +4,8 @@ import {
   type BotConfiguration, type InsertBotConfiguration,
   type AdminSession, type InsertAdminSession,
   type KeySubmission, type InsertKeySubmission,
-  type BotStatus, type InsertBotStatus
+  type BotStatus, type InsertBotStatus,
+  type AccessRequest, type InsertAccessRequest
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -50,6 +51,12 @@ export interface IStorage {
   setBotAvailable(botName: string): Promise<BotStatus>;
   getAllBotStatuses(): Promise<BotStatus[]>;
 
+  // Access request methods
+  createAccessRequest(request: InsertAccessRequest): Promise<AccessRequest>;
+  getAccessRequest(id: string): Promise<AccessRequest | undefined>;
+  getAccessRequestBySession(sessionId: string): Promise<AccessRequest | undefined>;
+  approveAccessRequest(id: string, accessLink: string): Promise<AccessRequest | undefined>;
+
   // Admin dashboard methods
   getAllSubmissions(): Promise<Array<{
     id: string;
@@ -76,6 +83,7 @@ export class MemStorage implements IStorage {
   private adminSessions: Map<string, AdminSession>;
   private keySubmissions: Map<string, KeySubmission>;
   private botStatuses: Map<string, BotStatus>;
+  private accessRequests: Map<string, AccessRequest>;
 
   constructor() {
     this.users = new Map();
@@ -84,6 +92,7 @@ export class MemStorage implements IStorage {
     this.adminSessions = new Map();
     this.keySubmissions = new Map();
     this.botStatuses = new Map();
+    this.accessRequests = new Map();
 
     // Initialize FlareBot_V1 status
     this.initializeBotStatus();
@@ -134,7 +143,8 @@ export class MemStorage implements IStorage {
       isVerified: false,
       expiresAt,
       verificationAttempts: 0, // Initialize attempts
-      lockedUntil: null, // Initialize lockedUntil
+      isTimedOut: false,
+      timeoutUntil: null, // Initialize timeoutUntil
       createdAt: new Date(),
     };
     this.verificationSessions.set(id, newSession);
@@ -177,16 +187,16 @@ export class MemStorage implements IStorage {
     const session = this.verificationSessions.get(id);
     if (!session) return;
 
-    const lockUntil = new Date(Date.now() + minutes * 60 * 1000);
-    const updated = { ...session, lockedUntil: lockUntil };
+    const timeoutUntil = new Date(Date.now() + minutes * 60 * 1000);
+    const updated = { ...session, isTimedOut: true, timeoutUntil };
     this.verificationSessions.set(id, updated);
   }
 
   async isAccountLocked(id: string): Promise<boolean> {
     const session = this.verificationSessions.get(id);
-    if (!session || !session.lockedUntil) return false;
+    if (!session || !session.timeoutUntil) return false;
 
-    return new Date() < session.lockedUntil;
+    return new Date() < session.timeoutUntil;
   }
 
   async getBotConfiguration(id: string): Promise<BotConfiguration | undefined> {
@@ -392,6 +402,45 @@ export class MemStorage implements IStorage {
 
   async getAllBotStatuses(): Promise<BotStatus[]> {
     return Array.from(this.botStatuses.values());
+  }
+
+  async createAccessRequest(request: InsertAccessRequest): Promise<AccessRequest> {
+    const id = randomUUID();
+    const newRequest: AccessRequest = {
+      id,
+      sessionId: request.sessionId || null,
+      status: request.status || "pending",
+      accessLink: request.accessLink || null,
+      requestTime: new Date(),
+      approvalTime: null,
+      createdAt: new Date(),
+    };
+    this.accessRequests.set(id, newRequest);
+    return newRequest;
+  }
+
+  async getAccessRequest(id: string): Promise<AccessRequest | undefined> {
+    return this.accessRequests.get(id);
+  }
+
+  async getAccessRequestBySession(sessionId: string): Promise<AccessRequest | undefined> {
+    return Array.from(this.accessRequests.values()).find(
+      (request) => request.sessionId === sessionId
+    );
+  }
+
+  async approveAccessRequest(id: string, accessLink: string): Promise<AccessRequest | undefined> {
+    const request = this.accessRequests.get(id);
+    if (!request) return undefined;
+
+    const updatedRequest = {
+      ...request,
+      status: "approved",
+      accessLink,
+      approvalTime: new Date(),
+    };
+    this.accessRequests.set(id, updatedRequest);
+    return updatedRequest;
   }
 }
 

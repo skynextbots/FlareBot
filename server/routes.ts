@@ -383,8 +383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create access request for admin review
       const accessRequest = await storage.createAccessRequest({
         sessionId,
-        status: "pending",
-        requestTime: new Date()
+        status: "pending"
       });
       
       res.json({ 
