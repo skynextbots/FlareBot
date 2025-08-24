@@ -71,6 +71,84 @@ export const accessRequests = pgTable("access_requests", {
   createdAt: timestamp("created_at").default(sql`now()`),
 });
 
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  robloxUsername: text("roblox_username").notNull().unique(),
+  displayName: text("display_name"),
+  bio: text("bio"),
+  favoriteGames: text("favorite_games").array(),
+  preferredModes: text("preferred_modes").array(),
+  totalSessions: integer("total_sessions").default(0),
+  totalPlayTime: integer("total_play_time").default(0), // in minutes
+  lastActiveAt: timestamp("last_active_at"),
+  joinedAt: timestamp("joined_at").default(sql`now()`),
+  isVip: boolean("is_vip").default(false),
+  reputation: real("reputation").default(0),
+  preferences: json("preferences"),
+});
+
+export const sessionHistory = pgTable("session_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id").references(() => userProfiles.id),
+  botName: text("bot_name").notNull(),
+  game: text("game").notNull(),
+  mode: text("mode").notNull(),
+  duration: integer("duration"), // in minutes
+  rating: integer("rating"), // 1-5 stars
+  feedback: text("feedback"),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  status: text("status").notNull().default("completed"), // completed, interrupted, cancelled
+});
+
+export const botQueue = pgTable("bot_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id").references(() => userProfiles.id),
+  botName: text("bot_name").notNull(),
+  game: text("game").notNull(),
+  mode: text("mode").notNull(),
+  priority: integer("priority").default(0), // VIP users get higher priority
+  estimatedWaitTime: integer("estimated_wait_time"), // in minutes
+  queuePosition: integer("queue_position"),
+  queuedAt: timestamp("queued_at").default(sql`now()`),
+  status: text("status").notNull().default("waiting"), // waiting, ready, expired
+});
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  profileId: varchar("profile_id").references(() => userProfiles.id),
+  type: text("type").notNull(), // queue_ready, session_ending, maintenance, etc.
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").default(false),
+  actionUrl: text("action_url"),
+  createdAt: timestamp("created_at").default(sql`now()`),
+});
+
+export const systemStats = pgTable("system_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: timestamp("date").notNull(),
+  totalUsers: integer("total_users").default(0),
+  activeUsers: integer("active_users").default(0),
+  totalSessions: integer("total_sessions").default(0),
+  avgSessionDuration: real("avg_session_duration").default(0),
+  botUtilization: json("bot_utilization"), // bot usage percentages
+  popularGames: json("popular_games"),
+  errorRate: real("error_rate").default(0),
+});
+
+export const maintenanceSchedule = pgTable("maintenance_schedule", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  affectedBots: text("affected_bots").array(),
+  isActive: boolean("is_active").default(false),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").default(sql`now()`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -108,6 +186,53 @@ export const insertAccessRequestSchema = createInsertSchema(accessRequests).pick
   accessLink: true,
 });
 
+export const insertUserProfileSchema = createInsertSchema(userProfiles).pick({
+  robloxUsername: true,
+  displayName: true,
+  bio: true,
+  favoriteGames: true,
+  preferredModes: true,
+  preferences: true,
+});
+
+export const insertSessionHistorySchema = createInsertSchema(sessionHistory).pick({
+  profileId: true,
+  botName: true,
+  game: true,
+  mode: true,
+  duration: true,
+  rating: true,
+  feedback: true,
+  startTime: true,
+  endTime: true,
+  status: true,
+});
+
+export const insertBotQueueSchema = createInsertSchema(botQueue).pick({
+  profileId: true,
+  botName: true,
+  game: true,
+  mode: true,
+  priority: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).pick({
+  profileId: true,
+  type: true,
+  title: true,
+  message: true,
+  actionUrl: true,
+});
+
+export const insertMaintenanceSchema = createInsertSchema(maintenanceSchedule).pick({
+  title: true,
+  description: true,
+  startTime: true,
+  endTime: true,
+  affectedBots: true,
+  createdBy: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -128,3 +253,20 @@ export type BotStatus = typeof botStatus.$inferSelect;
 
 export type InsertAccessRequest = z.infer<typeof insertAccessRequestSchema>;
 export type AccessRequest = typeof accessRequests.$inferSelect;
+
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
+
+export type InsertSessionHistory = z.infer<typeof insertSessionHistorySchema>;
+export type SessionHistory = typeof sessionHistory.$inferSelect;
+
+export type InsertBotQueue = z.infer<typeof insertBotQueueSchema>;
+export type BotQueue = typeof botQueue.$inferSelect;
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+export type InsertMaintenance = z.infer<typeof insertMaintenanceSchema>;
+export type Maintenance = typeof maintenanceSchedule.$inferSelect;
+
+export type SystemStats = typeof systemStats.$inferSelect;

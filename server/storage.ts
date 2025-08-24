@@ -5,7 +5,13 @@ import {
   type AdminSession, type InsertAdminSession,
   type KeySubmission, type InsertKeySubmission,
   type BotStatus, type InsertBotStatus,
-  type AccessRequest, type InsertAccessRequest
+  type AccessRequest, type InsertAccessRequest,
+  type UserProfile, type InsertUserProfile,
+  type SessionHistory, type InsertSessionHistory,
+  type BotQueue, type InsertBotQueue,
+  type Notification, type InsertNotification,
+  type Maintenance, type InsertMaintenance,
+  type SystemStats
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -57,6 +63,53 @@ export interface IStorage {
   getAccessRequestBySession(sessionId: string): Promise<AccessRequest | undefined>;
   approveAccessRequest(id: string, accessLink: string): Promise<AccessRequest | undefined>;
 
+  // User profile methods
+  createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  getUserProfile(robloxUsername: string): Promise<UserProfile | undefined>;
+  updateUserProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined>;
+  getAllUserProfiles(): Promise<UserProfile[]>;
+  incrementUserSessions(profileId: string): Promise<void>;
+  updateUserPlayTime(profileId: string, minutes: number): Promise<void>;
+
+  // Session history methods
+  createSessionHistory(session: InsertSessionHistory): Promise<SessionHistory>;
+  getSessionHistory(profileId: string, limit?: number): Promise<SessionHistory[]>;
+  getSessionById(id: string): Promise<SessionHistory | undefined>;
+  updateSessionHistory(id: string, updates: Partial<SessionHistory>): Promise<SessionHistory | undefined>;
+  getTopRatedSessions(): Promise<SessionHistory[]>;
+
+  // Bot queue methods
+  addToQueue(queue: InsertBotQueue): Promise<BotQueue>;
+  getQueuePosition(profileId: string, botName: string): Promise<number>;
+  getNextInQueue(botName: string): Promise<BotQueue | undefined>;
+  removeFromQueue(id: string): Promise<void>;
+  updateQueuePositions(botName: string): Promise<void>;
+  getMyQueueStatus(profileId: string): Promise<BotQueue[]>;
+
+  // Notification methods
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getUserNotifications(profileId: string, unreadOnly?: boolean): Promise<Notification[]>;
+  markNotificationRead(id: string): Promise<void>;
+  markAllNotificationsRead(profileId: string): Promise<void>;
+  deleteNotification(id: string): Promise<void>;
+
+  // Analytics and stats methods
+  getSystemStats(): Promise<SystemStats | undefined>;
+  updateSystemStats(stats: Partial<SystemStats>): Promise<void>;
+  getDashboardAnalytics(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    botUtilization: Record<string, number>;
+    popularGames: Array<{ name: string; count: number }>;
+    recentSessions: number;
+  }>;
+
+  // Maintenance methods
+  createMaintenance(maintenance: InsertMaintenance): Promise<Maintenance>;
+  getActiveMaintenance(): Promise<Maintenance[]>;
+  getUpcomingMaintenance(): Promise<Maintenance[]>;
+  updateMaintenance(id: string, updates: Partial<Maintenance>): Promise<Maintenance | undefined>;
+
   // Admin dashboard methods
   getAllSubmissions(): Promise<Array<{
     id: string;
@@ -84,6 +137,12 @@ export class MemStorage implements IStorage {
   private keySubmissions: Map<string, KeySubmission>;
   private botStatuses: Map<string, BotStatus>;
   private accessRequests: Map<string, AccessRequest>;
+  private userProfiles: Map<string, UserProfile>;
+  private sessionHistory: Map<string, SessionHistory>;
+  private botQueue: Map<string, BotQueue>;
+  private notifications: Map<string, Notification>;
+  private maintenance: Map<string, Maintenance>;
+  private systemStats: SystemStats | null;
 
   constructor() {
     this.users = new Map();
@@ -93,9 +152,17 @@ export class MemStorage implements IStorage {
     this.keySubmissions = new Map();
     this.botStatuses = new Map();
     this.accessRequests = new Map();
+    this.userProfiles = new Map();
+    this.sessionHistory = new Map();
+    this.botQueue = new Map();
+    this.notifications = new Map();
+    this.maintenance = new Map();
+    this.systemStats = null;
 
-    // Initialize FlareBot_V1 status
+    // Initialize FlareBot_V1 status and system data
     this.initializeBotStatus();
+    this.initializeSystemStats();
+    this.initializeSampleData();
   }
 
   private initializeBotStatus() {
@@ -109,6 +176,52 @@ export class MemStorage implements IStorage {
       lastUpdated: new Date(),
     };
     this.botStatuses.set("FlareBot_V1", botStatus);
+
+    // Add more bots for variety
+    const additionalBots = [
+      { id: "speedbot-pro", name: "SpeedBot_Pro" },
+      { id: "autoplay-elite", name: "AutoPlay_Elite" },
+      { id: "skillbot-max", name: "SkillBot_Max" },
+      { id: "farmbot-ultra", name: "FarmBot_Ultra" }
+    ];
+
+    additionalBots.forEach(bot => {
+      const status: BotStatus = {
+        id: bot.id,
+        botName: bot.name,
+        isInUse: false,
+        currentUser: null,
+        sessionStartTime: null,
+        sessionEndTime: null,
+        lastUpdated: new Date(),
+      };
+      this.botStatuses.set(bot.name, status);
+    });
+  }
+
+  private initializeSystemStats() {
+    this.systemStats = {
+      id: "system-stats-current",
+      date: new Date(),
+      totalUsers: 0,
+      activeUsers: 0,
+      totalSessions: 0,
+      avgSessionDuration: 0,
+      botUtilization: {},
+      popularGames: [],
+      errorRate: 0,
+    };
+  }
+
+  private initializeSampleData() {
+    // Create sample admin user
+    const adminUser: User = {
+      id: "admin-1",
+      username: "admin",
+      password: "admin123",
+      isPasswordSet: true
+    };
+    this.users.set("admin-1", adminUser);
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -123,9 +236,18 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const user: User = { ...insertUser, id, isPasswordSet: true };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+
+    const updatedUser = { ...user, ...updates };
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   async getVerificationSession(id: string): Promise<VerificationSession | undefined> {
@@ -441,6 +563,304 @@ export class MemStorage implements IStorage {
     };
     this.accessRequests.set(id, updatedRequest);
     return updatedRequest;
+  }
+
+  // User Profile Methods
+  async createUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
+    const id = randomUUID();
+    const newProfile: UserProfile = {
+      id,
+      robloxUsername: profile.robloxUsername,
+      displayName: profile.displayName || null,
+      bio: profile.bio || null,
+      favoriteGames: profile.favoriteGames || [],
+      preferredModes: profile.preferredModes || [],
+      totalSessions: 0,
+      totalPlayTime: 0,
+      lastActiveAt: new Date(),
+      joinedAt: new Date(),
+      isVip: false,
+      reputation: 0,
+      preferences: profile.preferences || null,
+    };
+    this.userProfiles.set(id, newProfile);
+    return newProfile;
+  }
+
+  async getUserProfile(robloxUsername: string): Promise<UserProfile | undefined> {
+    return Array.from(this.userProfiles.values()).find(
+      (profile) => profile.robloxUsername === robloxUsername
+    );
+  }
+
+  async updateUserProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile | undefined> {
+    const profile = this.userProfiles.get(id);
+    if (!profile) return undefined;
+
+    const updatedProfile = { ...profile, ...updates, lastActiveAt: new Date() };
+    this.userProfiles.set(id, updatedProfile);
+    return updatedProfile;
+  }
+
+  async getAllUserProfiles(): Promise<UserProfile[]> {
+    return Array.from(this.userProfiles.values()).sort(
+      (a, b) => b.totalSessions - a.totalSessions
+    );
+  }
+
+  async incrementUserSessions(profileId: string): Promise<void> {
+    const profile = this.userProfiles.get(profileId);
+    if (profile) {
+      profile.totalSessions += 1;
+      profile.lastActiveAt = new Date();
+      this.userProfiles.set(profileId, profile);
+    }
+  }
+
+  async updateUserPlayTime(profileId: string, minutes: number): Promise<void> {
+    const profile = this.userProfiles.get(profileId);
+    if (profile) {
+      profile.totalPlayTime += minutes;
+      this.userProfiles.set(profileId, profile);
+    }
+  }
+
+  // Session History Methods
+  async createSessionHistory(session: InsertSessionHistory): Promise<SessionHistory> {
+    const id = randomUUID();
+    const newSession: SessionHistory = {
+      id,
+      profileId: session.profileId || null,
+      botName: session.botName,
+      game: session.game,
+      mode: session.mode,
+      duration: session.duration || null,
+      rating: session.rating || null,
+      feedback: session.feedback || null,
+      startTime: session.startTime,
+      endTime: session.endTime || null,
+      status: session.status || "completed",
+    };
+    this.sessionHistory.set(id, newSession);
+    return newSession;
+  }
+
+  async getSessionHistory(profileId: string, limit = 10): Promise<SessionHistory[]> {
+    return Array.from(this.sessionHistory.values())
+      .filter((session) => session.profileId === profileId)
+      .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
+      .slice(0, limit);
+  }
+
+  async getSessionById(id: string): Promise<SessionHistory | undefined> {
+    return this.sessionHistory.get(id);
+  }
+
+  async updateSessionHistory(id: string, updates: Partial<SessionHistory>): Promise<SessionHistory | undefined> {
+    const session = this.sessionHistory.get(id);
+    if (!session) return undefined;
+
+    const updatedSession = { ...session, ...updates };
+    this.sessionHistory.set(id, updatedSession);
+    return updatedSession;
+  }
+
+  async getTopRatedSessions(): Promise<SessionHistory[]> {
+    return Array.from(this.sessionHistory.values())
+      .filter((session) => session.rating && session.rating >= 4)
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      .slice(0, 10);
+  }
+
+  // Bot Queue Methods
+  async addToQueue(queue: InsertBotQueue): Promise<BotQueue> {
+    const id = randomUUID();
+    const position = Array.from(this.botQueue.values())
+      .filter(q => q.botName === queue.botName && q.status === "waiting").length + 1;
+    
+    const newQueue: BotQueue = {
+      id,
+      profileId: queue.profileId || null,
+      botName: queue.botName,
+      game: queue.game,
+      mode: queue.mode,
+      priority: queue.priority || 0,
+      estimatedWaitTime: position * 10, // 10 minutes per position
+      queuePosition: position,
+      queuedAt: new Date(),
+      status: "waiting",
+    };
+    this.botQueue.set(id, newQueue);
+    return newQueue;
+  }
+
+  async getQueuePosition(profileId: string, botName: string): Promise<number> {
+    const userQueue = Array.from(this.botQueue.values()).find(
+      q => q.profileId === profileId && q.botName === botName && q.status === "waiting"
+    );
+    return userQueue?.queuePosition || 0;
+  }
+
+  async getNextInQueue(botName: string): Promise<BotQueue | undefined> {
+    return Array.from(this.botQueue.values())
+      .filter(q => q.botName === botName && q.status === "waiting")
+      .sort((a, b) => a.queuePosition - b.queuePosition)[0];
+  }
+
+  async removeFromQueue(id: string): Promise<void> {
+    this.botQueue.delete(id);
+  }
+
+  async updateQueuePositions(botName: string): Promise<void> {
+    const queueItems = Array.from(this.botQueue.values())
+      .filter(q => q.botName === botName && q.status === "waiting")
+      .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime());
+
+    queueItems.forEach((item, index) => {
+      item.queuePosition = index + 1;
+      item.estimatedWaitTime = (index + 1) * 10;
+      this.botQueue.set(item.id, item);
+    });
+  }
+
+  async getMyQueueStatus(profileId: string): Promise<BotQueue[]> {
+    return Array.from(this.botQueue.values())
+      .filter(q => q.profileId === profileId)
+      .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime());
+  }
+
+  // Notification Methods
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = randomUUID();
+    const newNotification: Notification = {
+      id,
+      profileId: notification.profileId || null,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      isRead: false,
+      actionUrl: notification.actionUrl || null,
+      createdAt: new Date(),
+    };
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+
+  async getUserNotifications(profileId: string, unreadOnly = false): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.profileId === profileId && (!unreadOnly || !n.isRead))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    const notification = this.notifications.get(id);
+    if (notification) {
+      notification.isRead = true;
+      this.notifications.set(id, notification);
+    }
+  }
+
+  async markAllNotificationsRead(profileId: string): Promise<void> {
+    Array.from(this.notifications.values())
+      .filter(n => n.profileId === profileId)
+      .forEach(n => {
+        n.isRead = true;
+        this.notifications.set(n.id, n);
+      });
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    this.notifications.delete(id);
+  }
+
+  // Analytics and Stats Methods
+  async getSystemStats(): Promise<SystemStats | undefined> {
+    return this.systemStats || undefined;
+  }
+
+  async updateSystemStats(stats: Partial<SystemStats>): Promise<void> {
+    if (this.systemStats) {
+      this.systemStats = { ...this.systemStats, ...stats };
+    }
+  }
+
+  async getDashboardAnalytics(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    botUtilization: Record<string, number>;
+    popularGames: Array<{ name: string; count: number }>;
+    recentSessions: number;
+  }> {
+    const totalUsers = this.userProfiles.size;
+    const activeUsers = Array.from(this.userProfiles.values())
+      .filter(p => p.lastActiveAt && (Date.now() - p.lastActiveAt.getTime()) < 24 * 60 * 60 * 1000).length;
+    
+    const botUtilization: Record<string, number> = {};
+    Array.from(this.botStatuses.values()).forEach(bot => {
+      botUtilization[bot.botName] = bot.isInUse ? 100 : 0;
+    });
+
+    const gameCount: Record<string, number> = {};
+    Array.from(this.sessionHistory.values()).forEach(session => {
+      gameCount[session.game] = (gameCount[session.game] || 0) + 1;
+    });
+
+    const popularGames = Object.entries(gameCount)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const recentSessions = Array.from(this.sessionHistory.values())
+      .filter(s => (Date.now() - s.startTime.getTime()) < 24 * 60 * 60 * 1000).length;
+
+    return {
+      totalUsers,
+      activeUsers,
+      botUtilization,
+      popularGames,
+      recentSessions,
+    };
+  }
+
+  // Maintenance Methods
+  async createMaintenance(maintenance: InsertMaintenance): Promise<Maintenance> {
+    const id = randomUUID();
+    const newMaintenance: Maintenance = {
+      id,
+      title: maintenance.title,
+      description: maintenance.description || null,
+      startTime: maintenance.startTime,
+      endTime: maintenance.endTime,
+      affectedBots: maintenance.affectedBots || [],
+      isActive: false,
+      createdBy: maintenance.createdBy,
+      createdAt: new Date(),
+    };
+    this.maintenance.set(id, newMaintenance);
+    return newMaintenance;
+  }
+
+  async getActiveMaintenance(): Promise<Maintenance[]> {
+    const now = new Date();
+    return Array.from(this.maintenance.values()).filter(
+      m => m.startTime <= now && m.endTime >= now
+    );
+  }
+
+  async getUpcomingMaintenance(): Promise<Maintenance[]> {
+    const now = new Date();
+    return Array.from(this.maintenance.values())
+      .filter(m => m.startTime > now)
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  }
+
+  async updateMaintenance(id: string, updates: Partial<Maintenance>): Promise<Maintenance | undefined> {
+    const maintenance = this.maintenance.get(id);
+    if (!maintenance) return undefined;
+
+    const updatedMaintenance = { ...maintenance, ...updates };
+    this.maintenance.set(id, updatedMaintenance);
+    return updatedMaintenance;
   }
 }
 
