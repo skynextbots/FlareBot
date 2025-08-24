@@ -30,6 +30,64 @@ setInterval(() => {
   });
 }, 60 * 1000); // Clean every minute
 
+// Function to check Roblox profile about section for verification code
+async function checkRobloxAboutSection(username: string, verificationCode: string): Promise<{ found: boolean; content?: string }> {
+  try {
+    // Get user ID first
+    const userResponse = await fetch(`https://users.roblox.com/v1/usernames/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'FlareBot/1.0'
+      },
+      body: JSON.stringify({
+        usernames: [username],
+        excludeBannedUsers: false
+      })
+    });
+
+    if (!userResponse.ok) {
+      console.error(`[Roblox API] Failed to get user ID for ${username}`);
+      return { found: false };
+    }
+
+    const userData = await userResponse.json();
+    if (!userData.data || userData.data.length === 0) {
+      return { found: false };
+    }
+
+    const userId = userData.data[0].id;
+
+    // Get user profile information including about section
+    const profileResponse = await fetch(`https://users.roblox.com/v1/users/${userId}`, {
+      headers: {
+        'User-Agent': 'FlareBot/1.0'
+      }
+    });
+
+    if (!profileResponse.ok) {
+      console.error(`[Roblox API] Failed to get profile for user ID ${userId}`);
+      return { found: false };
+    }
+
+    const profileData = await profileResponse.json();
+    const aboutContent = profileData.description || '';
+    
+    console.log(`[Roblox API] Checking about section for ${username}: "${aboutContent}"`);
+    console.log(`[Roblox API] Looking for verification code: ${verificationCode}`);
+    
+    const found = aboutContent.includes(verificationCode);
+    
+    return {
+      found,
+      content: aboutContent
+    };
+  } catch (error) {
+    console.error('[Roblox API] Error checking about section:', error);
+    return { found: false };
+  }
+}
+
 // Roblox API helper function with rate limiting and caching
 async function checkRobloxUserExists(username: string, clientIp?: string): Promise<boolean> {
   const cacheKey = username.toLowerCase();
@@ -159,8 +217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Verify Roblox status (check if user has code in their status)
-  app.post("/api/verify-status/:sessionId", async (req, res) => {
+  // Verify Roblox about section (check if user has code in their about)
+  app.post("/api/verify-about/:sessionId", async (req, res) => {
     try {
       const session = await storage.getVerificationSession(req.params.sessionId);
       if (!session) {
@@ -171,13 +229,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(410).json({ error: "Verification code expired" });
       }
 
-      // In a real implementation, you would check the user's Roblox status here
-      // For now, we'll simulate verification after a delay
-      const updatedSession = await storage.updateVerificationSession(session.id, {
-        isVerified: true
-      });
-
-      res.json(updatedSession);
+      // Check Roblox profile about section
+      const aboutContent = await checkRobloxAboutSection(session.robloxUsername, session.verificationCode);
+      
+      if (aboutContent.found) {
+        const updatedSession = await storage.updateVerificationSession(session.id, {
+          isVerified: true
+        });
+        res.json(updatedSession);
+      } else {
+        // Increment verification attempts
+        const attempts = await storage.incrementVerificationAttempts(session.id);
+        
+        if (attempts >= 3) {
+          // Lock account for 30 minutes
+          await storage.lockAccountTemporarily(session.id, 30);
+          return res.status(429).json({ 
+            error: "Too many failed attempts. Account locked for 30 minutes.",
+            lockedUntil: new Date(Date.now() + 30 * 60 * 1000)
+          });
+        }
+        
+        res.status(400).json({ 
+          error: "Verification code not found in about section", 
+          attemptsRemaining: 3 - attempts 
+        });
+      }
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }
@@ -288,6 +365,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // In a real implementation, you would verify admin session here
       // For now, we'll just return success
       res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Request access from admin (new system)
+  app.post("/api/request-access", async (req, res) => {
+    try {
+      const { sessionId } = req.body;
+      
+      const session = await storage.getVerificationSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Create access request for admin review
+      const accessRequest = await storage.createAccessRequest({
+        sessionId,
+        status: "pending",
+        requestTime: new Date()
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Access request submitted to admin",
+        requestId: accessRequest.id
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Check access request status
+  app.get("/api/access-request-status/:sessionId", async (req, res) => {
+    try {
+      const request = await storage.getAccessRequestBySession(req.params.sessionId);
+      if (!request) {
+        return res.status(404).json({ error: "Access request not found" });
+      }
+      
+      res.json({
+        approved: request.status === "approved",
+        accessLink: request.accessLink,
+        status: request.status
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Admin approve access request and provide link
+  app.post("/api/admin/approve-access/:requestId", async (req, res) => {
+    try {
+      const { accessLink } = req.body;
+      
+      const approvedRequest = await storage.approveAccessRequest(req.params.requestId, accessLink);
+      if (!approvedRequest) {
+        return res.status(404).json({ error: "Access request not found" });
+      }
+      
+      res.json(approvedRequest);
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }

@@ -1,4 +1,4 @@
-import { 
+import {
   type User, type InsertUser,
   type VerificationSession, type InsertVerificationSession,
   type BotConfiguration, type InsertBotConfiguration,
@@ -20,6 +20,9 @@ export interface IStorage {
   updateVerificationSession(id: string, updates: Partial<VerificationSession>): Promise<VerificationSession | undefined>;
   getVerificationSessionByCode(code: string): Promise<VerificationSession | undefined>;
   getActiveVerificationSessions(): Promise<VerificationSession[]>;
+  incrementVerificationAttempts(id: string): Promise<number>;
+  lockAccountTemporarily(id: string, minutes: number): Promise<void>;
+  isAccountLocked(id: string): Promise<boolean>;
 
   // Bot configuration methods
   getBotConfiguration(id: string): Promise<BotConfiguration | undefined>;
@@ -39,14 +42,14 @@ export interface IStorage {
   getKeySubmissionBySession(sessionId: string): Promise<KeySubmission | undefined>;
   updateKeySubmission(id: string, updates: Partial<KeySubmission>): Promise<KeySubmission | undefined>;
   approveKeySubmission(id: string): Promise<KeySubmission | undefined>;
-  
+
   // Bot status methods
   getBotStatus(botName: string): Promise<BotStatus | undefined>;
   updateBotStatus(botName: string, updates: Partial<BotStatus>): Promise<BotStatus>;
   setBotInUse(botName: string, username: string): Promise<BotStatus>;
   setBotAvailable(botName: string): Promise<BotStatus>;
   getAllBotStatuses(): Promise<BotStatus[]>;
-  
+
   // Admin dashboard methods
   getAllSubmissions(): Promise<Array<{
     id: string;
@@ -81,7 +84,7 @@ export class MemStorage implements IStorage {
     this.adminSessions = new Map();
     this.keySubmissions = new Map();
     this.botStatuses = new Map();
-    
+
     // Initialize FlareBot_V1 status
     this.initializeBotStatus();
   }
@@ -130,6 +133,8 @@ export class MemStorage implements IStorage {
       verificationCode: code,
       isVerified: false,
       expiresAt,
+      verificationAttempts: 0, // Initialize attempts
+      lockedUntil: null, // Initialize lockedUntil
       createdAt: new Date(),
     };
     this.verificationSessions.set(id, newSession);
@@ -137,12 +142,12 @@ export class MemStorage implements IStorage {
   }
 
   async updateVerificationSession(id: string, updates: Partial<VerificationSession>): Promise<VerificationSession | undefined> {
-    const session = this.verificationSessions.get(id);
-    if (!session) return undefined;
-    
-    const updatedSession = { ...session, ...updates };
-    this.verificationSessions.set(id, updatedSession);
-    return updatedSession;
+    const existing = this.verificationSessions.get(id);
+    if (!existing) return undefined;
+
+    const updated = { ...existing, ...updates };
+    this.verificationSessions.set(id, updated);
+    return updated;
   }
 
   async getVerificationSessionByCode(code: string): Promise<VerificationSession | undefined> {
@@ -156,6 +161,32 @@ export class MemStorage implements IStorage {
     return Array.from(this.verificationSessions.values()).filter(
       (session) => session.expiresAt > now
     );
+  }
+
+  async incrementVerificationAttempts(id: string): Promise<number> {
+    const session = this.verificationSessions.get(id);
+    if (!session) return 0;
+
+    const attempts = (session.verificationAttempts || 0) + 1;
+    const updated = { ...session, verificationAttempts: attempts };
+    this.verificationSessions.set(id, updated);
+    return attempts;
+  }
+
+  async lockAccountTemporarily(id: string, minutes: number): Promise<void> {
+    const session = this.verificationSessions.get(id);
+    if (!session) return;
+
+    const lockUntil = new Date(Date.now() + minutes * 60 * 1000);
+    const updated = { ...session, lockedUntil: lockUntil };
+    this.verificationSessions.set(id, updated);
+  }
+
+  async isAccountLocked(id: string): Promise<boolean> {
+    const session = this.verificationSessions.get(id);
+    if (!session || !session.lockedUntil) return false;
+
+    return new Date() < session.lockedUntil;
   }
 
   async getBotConfiguration(id: string): Promise<BotConfiguration | undefined> {
@@ -180,7 +211,7 @@ export class MemStorage implements IStorage {
   async updateBotConfiguration(id: string, updates: Partial<BotConfiguration>): Promise<BotConfiguration | undefined> {
     const config = this.botConfigurations.get(id);
     if (!config) return undefined;
-    
+
     const updatedConfig = { ...config, ...updates };
     this.botConfigurations.set(id, updatedConfig);
     return updatedConfig;
@@ -234,25 +265,25 @@ export class MemStorage implements IStorage {
   }>> {
     const sessions = Array.from(this.verificationSessions.values());
     const now = new Date();
-    
+
     return sessions.map(session => {
       const configs = Array.from(this.botConfigurations.values()).filter(
         config => config.sessionId === session.id
       );
       const latestConfig = configs[configs.length - 1];
-      
+
       const keySubmissions = Array.from(this.keySubmissions.values()).filter(
         submission => submission.sessionId === session.id
       );
       const latestKeySubmission = keySubmissions[keySubmissions.length - 1];
-      
+
       let status: 'pending' | 'verified' | 'failed' = 'pending';
       if (session.expiresAt < now && !session.isVerified) {
         status = 'failed';
       } else if (session.isVerified) {
         status = 'verified';
       }
-      
+
       return {
         id: session.id,
         robloxUsername: session.robloxUsername,
@@ -303,7 +334,7 @@ export class MemStorage implements IStorage {
   async updateKeySubmission(id: string, updates: Partial<KeySubmission>): Promise<KeySubmission | undefined> {
     const submission = this.keySubmissions.get(id);
     if (!submission) return undefined;
-    
+
     const updatedSubmission = { ...submission, ...updates };
     this.keySubmissions.set(id, updatedSubmission);
     return updatedSubmission;
@@ -312,10 +343,10 @@ export class MemStorage implements IStorage {
   async approveKeySubmission(id: string): Promise<KeySubmission | undefined> {
     const submission = this.keySubmissions.get(id);
     if (!submission) return undefined;
-    
+
     const nextIntentTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-    const updatedSubmission = { 
-      ...submission, 
+    const updatedSubmission = {
+      ...submission,
       status: "accepted",
       adminApprovalTime: new Date(),
       gameAccessTime: new Date(),

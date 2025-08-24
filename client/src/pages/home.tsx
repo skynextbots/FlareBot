@@ -2,23 +2,26 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import VerificationForm from "@/components/verification-form";
 import VerificationCode from "@/components/verification-code";
+import BotSelection from "@/components/bot-selection";
 import BotConfig from "@/components/bot-config";
 import AdminLogin from "@/components/admin-login";
 import KeySubmission from "@/components/key-submission";
 import GameAccess from "@/components/game-access";
+import FeaturesShowcase from "@/components/features-showcase";
 import { Button } from "@/components/ui/button";
 import { Bot, Shield, User } from "lucide-react";
 import type { VerificationSession, BotConfiguration } from "@/lib/types";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [currentStep, setCurrentStep] = useState<"verification" | "code" | "config" | "success" | "key-submission" | "game-access">("verification");
+  const [currentStep, setCurrentStep] = useState<"verification" | "code" | "bot-selection" | "config" | "success" | "key-submission" | "game-access">("verification");
   const [verificationSession, setVerificationSession] = useState<VerificationSession | null>(null);
   const [botConfig, setBotConfig] = useState<BotConfiguration | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [accessLink, setAccessLink] = useState<string>("");
   const [accessKey, setAccessKey] = useState<string>("");
   const [keySubmissionId, setKeySubmissionId] = useState<string>("");
+  const [selectedBot, setSelectedBot] = useState<string>("");
 
   const handleVerificationSuccess = (session: VerificationSession) => {
     setVerificationSession(session);
@@ -26,6 +29,11 @@ export default function Home() {
   };
 
   const handleCodeVerified = () => {
+    setCurrentStep("bot-selection");
+  };
+
+  const handleBotSelected = (botName: string) => {
+    setSelectedBot(botName);
     setCurrentStep("config");
   };
 

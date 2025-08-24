@@ -32,6 +32,9 @@ export default function KeySubmission({
 }: KeySubmissionProps) {
   const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isWaitingForAdmin, setIsWaitingForAdmin] = useState(false);
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [adminApprovedLink, setAdminApprovedLink] = useState<string | null>(null);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -73,6 +76,66 @@ export default function KeySubmission({
     }
   };
 
+  // Initial request submission to admin
+  const submitInitialRequest = async () => {
+    setIsSubmitting(true);
+    setIsWaitingForAdmin(true);
+    
+    try {
+      const response = await apiRequest("POST", "/api/request-access", {
+        sessionId
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Request submitted!",
+          description: "Your access request has been sent to admin. Please wait for approval.",
+        });
+        
+        // Start polling for admin approval and link
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusResponse = await fetch(`/api/access-request-status/${sessionId}`);
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              
+              if (statusData.approved && statusData.accessLink) {
+                clearInterval(pollInterval);
+                setAdminApprovedLink(statusData.accessLink);
+                setIsWaitingForAdmin(false);
+                setShowKeyInput(true);
+              }
+            }
+          } catch (error) {
+            // Continue polling
+          }
+        }, 3000);
+        
+        // Stop polling after 10 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (isWaitingForAdmin) {
+            setIsWaitingForAdmin(false);
+            toast({
+              title: "Request timeout",
+              description: "Admin approval timed out. Please try again.",
+              variant: "destructive",
+            });
+          }
+        }, 600000);
+      }
+    } catch (error) {
+      toast({
+        title: "Request failed",
+        description: "Failed to submit access request.",
+        variant: "destructive",
+      });
+      setIsWaitingForAdmin(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
@@ -82,34 +145,16 @@ export default function KeySubmission({
       });
 
       const result = await response.json();
-      setSubmissionStatus(result.status);
       
       if (result.success) {
         toast({
-          title: "Key accepted!",
-          description: result.message,
+          title: "Key submitted!",
+          description: "Your key has been submitted for final approval.",
         });
-        
-        // Start polling for admin approval
-        const pollInterval = setInterval(async () => {
-          try {
-            const statusResponse = await fetch(`/api/key-status/${keySubmissionId}`);
-            const statusData = await statusResponse.json();
-            
-            if (statusData.status === "accepted") {
-              clearInterval(pollInterval);
-              onSubmitted(true);
-            }
-          } catch (error) {
-            // Continue polling
-          }
-        }, 2000);
-        
-        // Stop polling after 5 minutes
-        setTimeout(() => clearInterval(pollInterval), 300000);
+        onSubmitted(true);
       } else {
         toast({
-          title: "Key rejected",
+          title: "Invalid key",
           description: result.message,
           variant: "destructive",
         });

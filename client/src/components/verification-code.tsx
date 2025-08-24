@@ -55,23 +55,31 @@ export default function VerificationCode({ session, onVerified }: VerificationCo
     }
   };
 
-  const verifyStatus = async () => {
+  const verifyAbout = async () => {
     setIsVerifying(true);
     try {
-      const response = await fetch(`/api/verify-status/${session.sessionId}`, {
+      const response = await fetch(`/api/verify-about/${session.sessionId}`, {
         method: 'POST',
       });
+
+      const result = await response.json();
 
       if (response.ok) {
         onVerified();
         toast({
           title: "Verification complete!",
-          description: "Your Roblox status has been verified.",
+          description: "Your Roblox about section has been verified.",
+        });
+      } else if (response.status === 429) {
+        toast({
+          title: "Account locked",
+          description: "Too many failed attempts. Account locked for 30 minutes.",
+          variant: "destructive",
         });
       } else {
         toast({
-          title: "Verification pending",
-          description: "Please update your Roblox status with the code and try again.",
+          title: "Verification failed",
+          description: result.error + (result.attemptsRemaining ? ` (${result.attemptsRemaining} attempts remaining)` : ''),
           variant: "destructive",
         });
       }
@@ -125,12 +133,17 @@ export default function VerificationCode({ session, onVerified }: VerificationCo
             <Alert className="border-blue-200 bg-blue-50">
               <Info className="h-4 w-4 text-blue-500" />
               <AlertDescription className="text-blue-700">
-                <p className="font-medium mb-1">Next Steps:</p>
+                <p className="font-medium mb-1">Instructions:</p>
                 <ol className="list-decimal list-inside space-y-1 text-sm">
                   <li>Copy the verification code above</li>
-                  <li>Update your Roblox status with this code</li>
-                  <li>Click "Verify Status" below</li>
+                  <li>Go to your <a href="https://www.roblox.com/users/profile" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Roblox Profile</a></li>
+                  <li>Click "Edit Profile" and paste the code in your "About" section</li>
+                  <li>Save your profile changes</li>
+                  <li>Return here and click "Verify About Section" below</li>
                 </ol>
+                <p className="text-xs mt-2 font-medium">
+                  Need help? <a href="https://en.help.roblox.com/hc/en-us/articles/203313660-All-About-Profiles-Blurbs-and-Profile-Customization" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">View Roblox Profile Help Guide</a>
+                </p>
               </AlertDescription>
             </Alert>
 
@@ -142,12 +155,12 @@ export default function VerificationCode({ session, onVerified }: VerificationCo
             </Alert>
 
             <Button
-              onClick={verifyStatus}
+              onClick={verifyAbout}
               disabled={isVerifying || timeRemaining === "0:00"}
               className="w-full bg-primary hover:bg-primary-dark text-white"
-              data-testid="button-verify-status"
+              data-testid="button-verify-about"
             >
-              {isVerifying ? "Verifying..." : "Verify Status"}
+              {isVerifying ? "Verifying About Section..." : "Verify About Section"}
             </Button>
           </div>
         </CardContent>
