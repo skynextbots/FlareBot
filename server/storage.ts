@@ -613,14 +613,14 @@ export class MemStorage implements IStorage {
 
   async getAllUserProfiles(): Promise<UserProfile[]> {
     return Array.from(this.userProfiles.values()).sort(
-      (a, b) => b.totalSessions - a.totalSessions
+      (a, b) => (b.totalSessions || 0) - (a.totalSessions || 0)
     );
   }
 
   async incrementUserSessions(profileId: string): Promise<void> {
     const profile = this.userProfiles.get(profileId);
     if (profile) {
-      profile.totalSessions += 1;
+      profile.totalSessions = (profile.totalSessions || 0) + 1;
       profile.lastActiveAt = new Date();
       this.userProfiles.set(profileId, profile);
     }
@@ -629,7 +629,7 @@ export class MemStorage implements IStorage {
   async updateUserPlayTime(profileId: string, minutes: number): Promise<void> {
     const profile = this.userProfiles.get(profileId);
     if (profile) {
-      profile.totalPlayTime += minutes;
+      profile.totalPlayTime = (profile.totalPlayTime || 0) + minutes;
       this.userProfiles.set(profileId, profile);
     }
   }
@@ -713,7 +713,7 @@ export class MemStorage implements IStorage {
   async getNextInQueue(botName: string): Promise<BotQueue | undefined> {
     return Array.from(this.botQueue.values())
       .filter(q => q.botName === botName && q.status === "waiting")
-      .sort((a, b) => a.queuePosition - b.queuePosition)[0];
+      .sort((a, b) => (a.queuePosition || 0) - (b.queuePosition || 0))[0];
   }
 
   async removeFromQueue(id: string): Promise<void> {
@@ -723,7 +723,7 @@ export class MemStorage implements IStorage {
   async updateQueuePositions(botName: string): Promise<void> {
     const queueItems = Array.from(this.botQueue.values())
       .filter(q => q.botName === botName && q.status === "waiting")
-      .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime());
+      .sort((a, b) => (a.queuedAt?.getTime() || 0) - (b.queuedAt?.getTime() || 0));
 
     queueItems.forEach((item, index) => {
       item.queuePosition = index + 1;
@@ -735,7 +735,7 @@ export class MemStorage implements IStorage {
   async getMyQueueStatus(profileId: string): Promise<BotQueue[]> {
     return Array.from(this.botQueue.values())
       .filter(q => q.profileId === profileId)
-      .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime());
+      .sort((a, b) => (a.queuedAt?.getTime() || 0) - (b.queuedAt?.getTime() || 0));
   }
 
   // Notification Methods
@@ -758,7 +758,7 @@ export class MemStorage implements IStorage {
   async getUserNotifications(profileId: string, unreadOnly = false): Promise<Notification[]> {
     return Array.from(this.notifications.values())
       .filter(n => n.profileId === profileId && (!unreadOnly || !n.isRead))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 
   async markNotificationRead(id: string): Promise<void> {

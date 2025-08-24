@@ -152,6 +152,7 @@ export const maintenanceSchedule = pgTable("maintenance_schedule", {
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  isPasswordSet: true,
 });
 
 export const insertVerificationSessionSchema = createInsertSchema(verificationSessions).pick({
