@@ -14,14 +14,14 @@ const MAX_CALLS_PER_MINUTE = 10; // Max calls per minute
 // Clean up old cache entries and rate limit data
 setInterval(() => {
   const now = Date.now();
-  
+
   // Clean cache
   Array.from(robloxApiCache.entries()).forEach(([key, value]) => {
     if (now - value.timestamp > CACHE_DURATION) {
       robloxApiCache.delete(key);
     }
   });
-  
+
   // Clean rate limit data
   Array.from(robloxApiCalls.entries()).forEach(([key, timestamp]) => {
     if (now - timestamp > RATE_LIMIT_DURATION) {
@@ -72,12 +72,12 @@ async function checkRobloxAboutSection(username: string, verificationCode: strin
 
     const profileData = await profileResponse.json();
     const aboutContent = profileData.description || '';
-    
+
     console.log(`[Roblox API] Checking about section for ${username}: "${aboutContent}"`);
     console.log(`[Roblox API] Looking for verification code: ${verificationCode}`);
-    
+
     const found = aboutContent.includes(verificationCode);
-    
+
     return {
       found,
       content: aboutContent
@@ -92,32 +92,32 @@ async function checkRobloxAboutSection(username: string, verificationCode: strin
 async function checkRobloxUserExists(username: string, clientIp?: string): Promise<boolean> {
   const cacheKey = username.toLowerCase();
   const rateLimitKey = clientIp || 'default';
-  
+
   // Check cache first
   const cached = robloxApiCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
     console.log(`[Roblox API] Cache hit for username: ${username}`);
     return cached.result;
   }
-  
+
   // Check rate limit
   const lastCall = robloxApiCalls.get(rateLimitKey) || 0;
   const callsInLastMinute = Array.from(robloxApiCalls.entries())
-    .filter(([key, timestamp]) => 
-      key.startsWith(rateLimitKey) && 
+    .filter(([key, timestamp]) =>
+      key.startsWith(rateLimitKey) &&
       (Date.now() - timestamp) < RATE_LIMIT_DURATION
     ).length;
-    
+
   if (callsInLastMinute >= MAX_CALLS_PER_MINUTE) {
     console.log(`[Roblox API] Rate limit exceeded for ${rateLimitKey}`);
     // Return cached result if available, otherwise assume username exists to avoid blocking
     return cached ? cached.result : true;
   }
-  
+
   try {
     // Record API call for rate limiting
     robloxApiCalls.set(`${rateLimitKey}_${Date.now()}`, Date.now());
-    
+
     // Use the current Roblox Users API v1 endpoint
     const response = await fetch(`https://users.roblox.com/v1/usernames/users`, {
       method: 'POST',
@@ -130,37 +130,37 @@ async function checkRobloxUserExists(username: string, clientIp?: string): Promi
         excludeBannedUsers: true
       })
     });
-    
+
     if (!response.ok) {
       console.error(`[Roblox API] HTTP ${response.status}: ${response.statusText}`);
-      
+
       // Fallback to alternative method
       const fallbackResponse = await fetch(`https://www.roblox.com/users/profile?username=${encodeURIComponent(username)}`);
       const exists = fallbackResponse.ok && !fallbackResponse.url.includes('UserNotFound');
-      
+
       // Cache result
       robloxApiCache.set(cacheKey, { result: exists, timestamp: Date.now() });
       console.log(`[Roblox API] Fallback result for ${username}: ${exists}`);
       return exists;
     }
-    
+
     const data = await response.json();
     const exists = data.data && data.data.length > 0 && data.data[0].id;
-    
+
     // Cache the result
     robloxApiCache.set(cacheKey, { result: exists, timestamp: Date.now() });
     console.log(`[Roblox API] Verified username ${username}: ${exists}`);
-    
+
     return exists;
   } catch (error) {
     console.error('[Roblox API] Connection error:', error);
-    
+
     // Return cached result if available
     if (cached) {
       console.log(`[Roblox API] Using cached result due to error for ${username}: ${cached.result}`);
       return cached.result;
     }
-    
+
     // If no cache and error, assume username exists to avoid blocking users
     // This prevents the verification system from breaking due to API issues
     console.log(`[Roblox API] Assuming username exists due to API error: ${username}`);
@@ -173,10 +173,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/verify-username", async (req, res) => {
     try {
       const { robloxUsername } = insertVerificationSessionSchema.parse(req.body);
-      
+
       // Get client IP for rate limiting
       const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
-      
+
       // Check if username exists on Roblox
       const userExists = await checkRobloxUserExists(robloxUsername, clientIp);
       if (!userExists) {
@@ -185,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create verification session
       const session = await storage.createVerificationSession({ robloxUsername });
-      
+
       res.json({
         sessionId: session.id,
         verificationCode: session.verificationCode,
@@ -231,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check Roblox profile about section
       const aboutContent = await checkRobloxAboutSection(session.robloxUsername, session.verificationCode);
-      
+
       if (aboutContent.found) {
         const updatedSession = await storage.updateVerificationSession(session.id, {
           isVerified: true
@@ -240,21 +240,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Increment verification attempts
         const attempts = await storage.incrementVerificationAttempts(session.id);
-        
+
         if (attempts >= 3) {
           // Lock account for 30 minutes
           await storage.lockAccountTemporarily(session.id, 30);
-          return res.status(429).json({ 
+          return res.status(429).json({
             error: "Too many failed attempts. Account locked for 30 minutes.",
             lockedUntil: new Date(Date.now() + 30 * 60 * 1000)
           });
         }
-        
-        res.status(400).json({ 
-          error: "Verification code not found in about section", 
-          attemptsRemaining: 3 - attempts 
+
+        res.status(400).json({
+          error: "Verification code not found in about section",
+          attemptsRemaining: 3 - attempts
         });
       }
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Set user password
+  app.post("/api/set-password", async (req, res) => {
+    try {
+      const { sessionId, password } = req.body;
+      const session = await storage.getVerificationSession(sessionId);
+      if (!session || !session.isVerified) {
+        return res.status(400).json({ error: "Session not found or not verified" });
+      }
+
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
+      if (!password.match(passwordRegex)) {
+        return res.status(400).json({ error: "Password does not meet criteria" });
+      }
+
+      await storage.updateUser(session.robloxUsername, { password, isPasswordSet: true });
+      res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }
@@ -264,7 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bot-config", async (req, res) => {
     try {
       const configData = insertBotConfigurationSchema.parse(req.body);
-      
+
       // Verify session exists and is verified
       if (!configData.sessionId) {
         return res.status(400).json({ error: "Session ID is required" });
@@ -306,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
+
       // Hardcoded admin credentials
       if (username !== "Kiff1132" || password !== "SystemJoke") {
         return res.status(401).json({ error: "Invalid credentials" });
@@ -342,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const submissions = await storage.getAllSubmissions();
       const activeSessions = await storage.getActiveVerificationSessions();
-      
+
       const stats = {
         activeUsers: submissions.filter(s => s.status === 'verified').length,
         pendingVerifications: submissions.filter(s => s.status === 'pending').length,
@@ -374,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/request-access", async (req, res) => {
     try {
       const { sessionId } = req.body;
-      
+
       const session = await storage.getVerificationSession(sessionId);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
@@ -385,9 +406,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId,
         status: "pending"
       });
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         message: "Access request submitted to admin",
         requestId: accessRequest.id
       });
@@ -403,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!request) {
         return res.status(404).json({ error: "Access request not found" });
       }
-      
+
       res.json({
         approved: request.status === "approved",
         accessLink: request.accessLink,
@@ -418,12 +439,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/approve-access/:requestId", async (req, res) => {
     try {
       const { accessLink } = req.body;
-      
+
       const approvedRequest = await storage.approveAccessRequest(req.params.requestId, accessLink);
       if (!approvedRequest) {
         return res.status(404).json({ error: "Access request not found" });
       }
-      
+
       res.json(approvedRequest);
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -439,19 +460,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create key submission
-      const keySubmission = await storage.createKeySubmission({ 
-        sessionId: session.id, 
-        submittedKey: null 
+      const keySubmission = await storage.createKeySubmission({
+        sessionId: session.id,
+        submittedKey: null
       });
-      
+
       // Generate a unique access link (in production, this would be a real external service)
       const linkId = Math.random().toString(36).substr(2, 16);
       const accessLink = `https://flarebot-keys.com/access/${linkId}`;
-      
-      res.json({ 
-        accessLink, 
+
+      res.json({
+        accessLink,
         accessKey: keySubmission.accessKey,
-        keySubmissionId: keySubmission.id 
+        keySubmissionId: keySubmission.id
       });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -462,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/submit-key", async (req, res) => {
     try {
       const { sessionId, submittedKey } = insertKeySubmissionSchema.parse(req.body);
-      
+
       if (!sessionId) {
         return res.status(400).json({ error: "Session ID is required" });
       }
@@ -474,21 +495,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if submitted key matches the generated key
       const isKeyValid = submittedKey === existingSubmission.accessKey;
-      
+
       if (isKeyValid) {
         const updatedSubmission = await storage.updateKeySubmission(existingSubmission.id, {
           submittedKey,
           status: "pending"
         });
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           status: "accepted",
           message: "Key accepted! Waiting for admin approval.",
           keySubmissionId: existingSubmission.id
         });
       } else {
-        res.json({ 
-          success: false, 
+        res.json({
+          success: false,
           status: "in_use",
           message: "Bot is being used right now. Please try again later."
         });
@@ -505,7 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!submission) {
         return res.status(404).json({ error: "Key submission not found" });
       }
-      
+
       res.json({
         status: submission.status,
         gameAccessTime: submission.gameAccessTime,
@@ -523,14 +544,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!approvedSubmission) {
         return res.status(404).json({ error: "Key submission not found" });
       }
-      
+
       // Get the session to find the username
       const session = await storage.getVerificationSession(approvedSubmission.sessionId!);
       if (session) {
         // Set bot as in use
         await storage.setBotInUse("FlareBot_V1", session.robloxUsername);
       }
-      
+
       res.json(approvedSubmission);
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -544,14 +565,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!status) {
         return res.status(404).json({ error: "Bot not found" });
       }
-      
+
       // Check if session has expired
       if (status.isInUse && status.sessionEndTime && status.sessionEndTime < new Date()) {
         // Auto-expire the session
         const updatedStatus = await storage.setBotAvailable(req.params.botName);
         return res.json(updatedStatus);
       }
-      
+
       res.json(status);
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -562,14 +583,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/bot-statuses", async (req, res) => {
     try {
       const statuses = await storage.getAllBotStatuses();
-      
+
       // Check for expired sessions and clean them up
       for (const status of statuses) {
         if (status.isInUse && status.sessionEndTime && status.sessionEndTime < new Date()) {
           await storage.setBotAvailable(status.botName);
         }
       }
-      
+
       // Get updated statuses
       const updatedStatuses = await storage.getAllBotStatuses();
       res.json(updatedStatuses);

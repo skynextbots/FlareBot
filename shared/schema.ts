@@ -6,7 +6,8 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password").notNull(), // Existing field
+  isPasswordSet: boolean("is_password_set").default(false), // New field for tracking if a password is set
 });
 
 export const verificationSessions = pgTable("verification_sessions", {

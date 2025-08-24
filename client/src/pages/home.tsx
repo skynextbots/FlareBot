@@ -120,6 +120,13 @@ export default function Home() {
           />
         )}
 
+        {currentStep === "password" && verificationSession && (
+          <PasswordSet 
+            sessionId={verificationSession.sessionId} 
+            onPasswordSet={() => setCurrentStep('config')}
+          />
+        )}
+
         {currentStep === "config" && verificationSession && (
           <BotConfig 
             sessionId={verificationSession.sessionId}
