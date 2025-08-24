@@ -48,19 +48,19 @@ export default function Admin() {
   }
 
   return (
-    <div className="font-roboto bg-gray-50 min-h-screen">
+    <div className="font-roboto bg-white min-h-screen">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-black shadow-lg border-b-4 border-orange">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Admin Dashboard</h2>
-              <p className="text-gray-600">Manage user submissions and system settings</p>
+              <h2 className="text-2xl font-bold text-white">FlareBot Admin Dashboard</h2>
+              <p className="text-orange">Manage user submissions and system settings</p>
             </div>
             <Button
               variant="ghost"
               onClick={handleLogout}
-              className="text-gray-600 hover:text-gray-800"
+              className="text-white hover:text-orange hover:bg-gray-800 border border-orange"
               data-testid="button-admin-logout"
             >
               <LogOut className="mr-2 h-4 w-4" />

@@ -34,6 +34,12 @@ export interface Submission {
   isVerified: boolean;
   game?: string;
   mode?: string;
+  additionalSettings?: string;
+  submittedKey?: string;
+  accessKey?: string;
+  keyStatus?: string;
+  sessionStartTime?: string;
+  sessionEndTime?: string;
   createdAt: string;
   status: 'pending' | 'verified' | 'failed';
 }

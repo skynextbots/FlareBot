@@ -55,6 +55,12 @@ export interface IStorage {
     isVerified: boolean;
     game?: string;
     mode?: string;
+    additionalSettings?: string;
+    submittedKey?: string;
+    accessKey?: string;
+    keyStatus?: string;
+    sessionStartTime?: Date;
+    sessionEndTime?: Date;
     createdAt: Date;
     status: 'pending' | 'verified' | 'failed';
   }>>;
@@ -235,6 +241,11 @@ export class MemStorage implements IStorage {
       );
       const latestConfig = configs[configs.length - 1];
       
+      const keySubmissions = Array.from(this.keySubmissions.values()).filter(
+        submission => submission.sessionId === session.id
+      );
+      const latestKeySubmission = keySubmissions[keySubmissions.length - 1];
+      
       let status: 'pending' | 'verified' | 'failed' = 'pending';
       if (session.expiresAt < now && !session.isVerified) {
         status = 'failed';
@@ -249,6 +260,12 @@ export class MemStorage implements IStorage {
         isVerified: session.isVerified || false,
         game: latestConfig?.game,
         mode: latestConfig?.mode,
+        additionalSettings: latestConfig?.additionalSettings,
+        submittedKey: latestKeySubmission?.submittedKey,
+        accessKey: latestKeySubmission?.accessKey,
+        keyStatus: latestKeySubmission?.status,
+        sessionStartTime: latestKeySubmission?.gameAccessTime,
+        sessionEndTime: latestKeySubmission?.nextIntentTime,
         createdAt: session.createdAt || new Date(),
         status,
       };
