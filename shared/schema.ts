@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, json, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, json, boolean, integer, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -14,6 +14,9 @@ export const verificationSessions = pgTable("verification_sessions", {
   robloxUsername: text("roblox_username").notNull(),
   verificationCode: text("verification_code").notNull(),
   isVerified: boolean("is_verified").default(false),
+  verificationAttempts: integer("verification_attempts").default(0),
+  isTimedOut: boolean("is_timed_out").default(false),
+  timeoutUntil: timestamp("timeout_until"),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").default(sql`now()`),
 });
