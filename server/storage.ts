@@ -2,7 +2,8 @@ import {
   type User, type InsertUser,
   type VerificationSession, type InsertVerificationSession,
   type BotConfiguration, type InsertBotConfiguration,
-  type AdminSession, type InsertAdminSession
+  type AdminSession, type InsertAdminSession,
+  type KeySubmission, type InsertKeySubmission
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -31,6 +32,13 @@ export interface IStorage {
   getActiveAdminSession(): Promise<AdminSession | undefined>;
   deactivateAdminSession(id: string): Promise<void>;
 
+  // Key submission methods
+  createKeySubmission(submission: InsertKeySubmission): Promise<KeySubmission>;
+  getKeySubmission(id: string): Promise<KeySubmission | undefined>;
+  getKeySubmissionBySession(sessionId: string): Promise<KeySubmission | undefined>;
+  updateKeySubmission(id: string, updates: Partial<KeySubmission>): Promise<KeySubmission | undefined>;
+  approveKeySubmission(id: string): Promise<KeySubmission | undefined>;
+  
   // Admin dashboard methods
   getAllSubmissions(): Promise<Array<{
     id: string;
@@ -49,12 +57,14 @@ export class MemStorage implements IStorage {
   private verificationSessions: Map<string, VerificationSession>;
   private botConfigurations: Map<string, BotConfiguration>;
   private adminSessions: Map<string, AdminSession>;
+  private keySubmissions: Map<string, KeySubmission>;
 
   constructor() {
     this.users = new Map();
     this.verificationSessions = new Map();
     this.botConfigurations = new Map();
     this.adminSessions = new Map();
+    this.keySubmissions = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -124,7 +134,10 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const newConfig: BotConfiguration = {
       id,
-      ...config,
+      sessionId: config.sessionId || null,
+      game: config.game,
+      mode: config.mode,
+      additionalSettings: config.additionalSettings || null,
       isCompleted: false,
       createdAt: new Date(),
     };
@@ -207,13 +220,66 @@ export class MemStorage implements IStorage {
         id: session.id,
         robloxUsername: session.robloxUsername,
         verificationCode: session.verificationCode,
-        isVerified: session.isVerified,
+        isVerified: session.isVerified || false,
         game: latestConfig?.game,
         mode: latestConfig?.mode,
         createdAt: session.createdAt || new Date(),
         status,
       };
     }).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createKeySubmission(submission: InsertKeySubmission): Promise<KeySubmission> {
+    const id = randomUUID();
+    const accessKey = `FK_${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+    const newSubmission: KeySubmission = {
+      id,
+      sessionId: submission.sessionId || null,
+      submittedKey: submission.submittedKey || null,
+      accessKey,
+      status: "pending",
+      adminApprovalTime: null,
+      gameAccessTime: null,
+      nextIntentTime: null,
+      createdAt: new Date(),
+    };
+    this.keySubmissions.set(id, newSubmission);
+    return newSubmission;
+  }
+
+  async getKeySubmission(id: string): Promise<KeySubmission | undefined> {
+    return this.keySubmissions.get(id);
+  }
+
+  async getKeySubmissionBySession(sessionId: string): Promise<KeySubmission | undefined> {
+    return Array.from(this.keySubmissions.values()).find(
+      (submission) => submission.sessionId === sessionId
+    );
+  }
+
+  async updateKeySubmission(id: string, updates: Partial<KeySubmission>): Promise<KeySubmission | undefined> {
+    const submission = this.keySubmissions.get(id);
+    if (!submission) return undefined;
+    
+    const updatedSubmission = { ...submission, ...updates };
+    this.keySubmissions.set(id, updatedSubmission);
+    return updatedSubmission;
+  }
+
+  async approveKeySubmission(id: string): Promise<KeySubmission | undefined> {
+    const submission = this.keySubmissions.get(id);
+    if (!submission) return undefined;
+    
+    const nextIntentTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+    const updatedSubmission = { 
+      ...submission, 
+      status: "accepted",
+      adminApprovalTime: new Date(),
+      gameAccessTime: new Date(),
+      nextIntentTime
+    };
+    this.keySubmissions.set(id, updatedSubmission);
+    return updatedSubmission;
   }
 }
 

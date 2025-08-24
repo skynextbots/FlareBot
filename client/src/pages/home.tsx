@@ -4,16 +4,21 @@ import VerificationForm from "@/components/verification-form";
 import VerificationCode from "@/components/verification-code";
 import BotConfig from "@/components/bot-config";
 import AdminLogin from "@/components/admin-login";
+import KeySubmission from "@/components/key-submission";
+import GameAccess from "@/components/game-access";
 import { Button } from "@/components/ui/button";
 import { Bot, Shield, User } from "lucide-react";
 import type { VerificationSession, BotConfiguration } from "@/lib/types";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [currentStep, setCurrentStep] = useState<"verification" | "code" | "config" | "success">("verification");
+  const [currentStep, setCurrentStep] = useState<"verification" | "code" | "config" | "success" | "key-submission" | "game-access">("verification");
   const [verificationSession, setVerificationSession] = useState<VerificationSession | null>(null);
   const [botConfig, setBotConfig] = useState<BotConfiguration | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [accessLink, setAccessLink] = useState<string>("");
+  const [accessKey, setAccessKey] = useState<string>("");
+  const [keySubmissionId, setKeySubmissionId] = useState<string>("");
 
   const handleVerificationSuccess = (session: VerificationSession) => {
     setVerificationSession(session);
@@ -38,11 +43,20 @@ export default function Home() {
       });
       
       if (response.ok) {
-        const { accessLink } = await response.json();
-        window.open(accessLink, '_blank');
+        const { accessLink: link, accessKey: key, keySubmissionId: submissionId } = await response.json();
+        setAccessLink(link);
+        setAccessKey(key);
+        setKeySubmissionId(submissionId);
+        setCurrentStep("key-submission");
       }
     } catch (error) {
       console.error('Failed to generate access link:', error);
+    }
+  };
+
+  const handleKeySubmitted = (approved: boolean) => {
+    if (approved) {
+      setCurrentStep("game-access");
     }
   };
 
@@ -125,6 +139,23 @@ export default function Home() {
               </Button>
             </div>
           </div>
+        )}
+
+        {currentStep === "key-submission" && verificationSession && (
+          <KeySubmission
+            sessionId={verificationSession.sessionId}
+            accessLink={accessLink}
+            accessKey={accessKey}
+            keySubmissionId={keySubmissionId}
+            onSubmitted={handleKeySubmitted}
+          />
+        )}
+
+        {currentStep === "game-access" && (
+          <GameAccess
+            keySubmissionId={keySubmissionId}
+            onReturnToDashboard={() => setCurrentStep("verification")}
+          />
         )}
       </div>
 

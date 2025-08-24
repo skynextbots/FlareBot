@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertVerificationSessionSchema, insertBotConfigurationSchema, insertAdminSessionSchema } from "@shared/schema";
+import { insertVerificationSessionSchema, insertBotConfigurationSchema, insertAdminSessionSchema, insertKeySubmissionSchema } from "@shared/schema";
 import { z } from "zod";
 
 // Roblox API helper function
@@ -91,6 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const configData = insertBotConfigurationSchema.parse(req.body);
       
       // Verify session exists and is verified
+      if (!configData.sessionId) {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
       const session = await storage.getVerificationSession(configData.sessionId);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
@@ -192,7 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate access link
+  // Generate access link and key
   app.post("/api/generate-link/:sessionId", async (req, res) => {
     try {
       const session = await storage.getVerificationSession(req.params.sessionId);
@@ -200,11 +203,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
+      // Create key submission
+      const keySubmission = await storage.createKeySubmission({ 
+        sessionId: session.id, 
+        submittedKey: null 
+      });
+      
       // Generate a unique access link (in production, this would be a real external service)
       const linkId = Math.random().toString(36).substr(2, 16);
       const accessLink = `https://flarebot-keys.com/access/${linkId}`;
       
-      res.json({ accessLink });
+      res.json({ 
+        accessLink, 
+        accessKey: keySubmission.accessKey,
+        keySubmissionId: keySubmission.id 
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Submit access key
+  app.post("/api/submit-key", async (req, res) => {
+    try {
+      const { sessionId, submittedKey } = insertKeySubmissionSchema.parse(req.body);
+      
+      if (!sessionId) {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
+
+      const existingSubmission = await storage.getKeySubmissionBySession(sessionId);
+      if (!existingSubmission) {
+        return res.status(404).json({ error: "Key submission not found" });
+      }
+
+      // Check if submitted key matches the generated key
+      const isKeyValid = submittedKey === existingSubmission.accessKey;
+      
+      if (isKeyValid) {
+        const updatedSubmission = await storage.updateKeySubmission(existingSubmission.id, {
+          submittedKey,
+          status: "pending"
+        });
+        res.json({ 
+          success: true, 
+          status: "accepted",
+          message: "Key accepted! Waiting for admin approval.",
+          keySubmissionId: existingSubmission.id
+        });
+      } else {
+        res.json({ 
+          success: false, 
+          status: "in_use",
+          message: "Bot is being used right now. Please try again later."
+        });
+      }
+    } catch (error) {
+      res.status(400).json({ error: "Invalid key submission data" });
+    }
+  });
+
+  // Check key status
+  app.get("/api/key-status/:keySubmissionId", async (req, res) => {
+    try {
+      const submission = await storage.getKeySubmission(req.params.keySubmissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Key submission not found" });
+      }
+      
+      res.json({
+        status: submission.status,
+        gameAccessTime: submission.gameAccessTime,
+        nextIntentTime: submission.nextIntentTime
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Admin approve key
+  app.post("/api/admin/approve-key/:keySubmissionId", async (req, res) => {
+    try {
+      const approvedSubmission = await storage.approveKeySubmission(req.params.keySubmissionId);
+      if (!approvedSubmission) {
+        return res.status(404).json({ error: "Key submission not found" });
+      }
+      
+      res.json(approvedSubmission);
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }

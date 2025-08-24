@@ -37,3 +37,15 @@ export interface Submission {
   createdAt: string;
   status: 'pending' | 'verified' | 'failed';
 }
+
+export interface KeySubmission {
+  id: string;
+  sessionId: string;
+  accessKey: string;
+  submittedKey?: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'in_use';
+  adminApprovalTime?: string;
+  gameAccessTime?: string;
+  nextIntentTime?: string;
+  createdAt: string;
+}

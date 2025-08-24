@@ -285,6 +285,7 @@ export default function AdminDashboard() {
                         size="sm"
                         onClick={() => handleGenerateLink(submission.id)}
                         data-testid={`button-link-${submission.id}`}
+                        title="Generate access link for user"
                       >
                         <Link className="h-4 w-4 text-secondary" />
                       </Button>

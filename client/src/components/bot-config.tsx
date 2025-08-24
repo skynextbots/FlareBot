@@ -23,18 +23,11 @@ interface BotConfigProps {
 }
 
 const games = [
-  { value: "adopt-me", label: "Adopt Me!" },
-  { value: "jailbreak", label: "Jailbreak" },
-  { value: "mm2", label: "Murder Mystery 2" },
-  { value: "arsenal", label: "Arsenal" },
-  { value: "tower-defense", label: "Tower Defense Simulator" },
+  { value: "dead-rails", label: "Dead Rails" },
 ];
 
 const modes = [
-  { value: "auto-farm", label: "Auto Farm" },
-  { value: "auto-collect", label: "Auto Collect" },
-  { value: "auto-trade", label: "Auto Trade" },
-  { value: "speed-hack", label: "Speed Enhancement" },
+  { value: "native-hub", label: "Native Hub" },
 ];
 
 export default function BotConfig({ sessionId, onComplete }: BotConfigProps) {
@@ -148,18 +141,15 @@ export default function BotConfig({ sessionId, onComplete }: BotConfigProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium text-gray-700">
-                      Additional Settings (Optional)
+                      Submit
                     </FormLabel>
                     <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Enter any additional configuration parameters..."
-                        rows={3}
-                        className="resize-none"
-                        data-testid="textarea-additional-settings"
-                      />
+                      <div className="p-3 bg-gray-50 rounded-md border">
+                        <p className="text-sm text-gray-600">
+                          Click the button below to submit your bot configuration and proceed to the next step.
+                        </p>
+                      </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -170,7 +160,7 @@ export default function BotConfig({ sessionId, onComplete }: BotConfigProps) {
                 data-testid="button-configure-bot"
               >
                 <Rocket className="mr-2 h-4 w-4" />
-                Configure Bot
+                Submit Configuration
               </Button>
             </form>
           </Form>

@@ -35,6 +35,18 @@ export const adminSessions = pgTable("admin_sessions", {
   createdAt: timestamp("created_at").default(sql`now()`),
 });
 
+export const keySubmissions = pgTable("key_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => verificationSessions.id),
+  accessKey: text("access_key").notNull(),
+  submittedKey: text("submitted_key"),
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected, in_use
+  adminApprovalTime: timestamp("admin_approval_time"),
+  gameAccessTime: timestamp("game_access_time"),
+  nextIntentTime: timestamp("next_intent_time"),
+  createdAt: timestamp("created_at").default(sql`now()`),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -55,6 +67,11 @@ export const insertAdminSessionSchema = createInsertSchema(adminSessions).pick({
   username: true,
 });
 
+export const insertKeySubmissionSchema = createInsertSchema(keySubmissions).pick({
+  sessionId: true,
+  submittedKey: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -66,3 +83,6 @@ export type BotConfiguration = typeof botConfigurations.$inferSelect;
 
 export type InsertAdminSession = z.infer<typeof insertAdminSessionSchema>;
 export type AdminSession = typeof adminSessions.$inferSelect;
+
+export type InsertKeySubmission = z.infer<typeof insertKeySubmissionSchema>;
+export type KeySubmission = typeof keySubmissions.$inferSelect;
