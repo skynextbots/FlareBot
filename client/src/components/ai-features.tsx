@@ -24,8 +24,8 @@ import {
   Network,
   Lock,
   Sparkles,
-  Robot,
-  Analytics,
+  Bot,
+  BarChart3,
   Globe,
   Headphones,
   FileText,
@@ -227,7 +227,7 @@ export default function AIFeatures({ sessionId }: AIFeaturesProps) {
         description: 'Analyzes user feedback and satisfaction levels',
         status: 'active',
         accuracy: 92.1,
-        icon: <Analytics className="h-5 w-5" />,
+        icon: <BarChart3 className="h-5 w-5" />,
         category: 'Analytics'
       },
       {
@@ -254,7 +254,7 @@ export default function AIFeatures({ sessionId }: AIFeaturesProps) {
         description: 'Coordinates multiple bots for complex multi-game scenarios',
         status: 'active',
         accuracy: 97.1,
-        icon: <Robot className="h-5 w-5" />,
+        icon: <Bot className="h-5 w-5" />,
         category: 'Coordination'
       },
       {
