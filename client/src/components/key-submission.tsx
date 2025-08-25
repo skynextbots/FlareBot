@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, Copy, Key, Loader2, Shield, AlertTriangle, ExternalLink } from "lucide-react";
+import { Clock, Copy, Key, Loader2, Shield, AlertTriangle, ExternalLink, Info, RefreshCw, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -23,12 +23,12 @@ interface KeySubmissionProps {
   onSubmitted: (approved: boolean) => void;
 }
 
-export default function KeySubmission({ 
-  sessionId, 
-  accessLink, 
-  accessKey, 
-  keySubmissionId, 
-  onSubmitted 
+export default function KeySubmission({
+  sessionId,
+  accessLink,
+  accessKey,
+  keySubmissionId,
+  onSubmitted
 }: KeySubmissionProps) {
   const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,6 +36,9 @@ export default function KeySubmission({
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [adminApprovedLink, setAdminApprovedLink] = useState<string | null>(null);
   const { toast } = useToast();
+  const [submittedKey, setSubmittedKey] = useState(""); // State for the native key input
+  const [hasSubmittedKey, setHasSubmittedKey] = useState(false); // State to track if a key has been generated/submitted
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false); // State for checking status
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -175,6 +178,43 @@ export default function KeySubmission({
     }
   };
 
+  const checkKeyStatus = async () => {
+    setIsCheckingStatus(true);
+    // Placeholder for actual status check logic
+    // For now, simulate a status check
+    setTimeout(() => {
+      setIsCheckingStatus(false);
+      // Simulate a successful status check leading to key submission prompt
+      if (keySubmissionId) {
+        setHasSubmittedKey(false); // Reset or ensure it's false if re-checking
+      }
+    }, 2000);
+  };
+
+  const handleSubmitKey = async () => {
+    setIsSubmitting(true);
+    try {
+      // Simulate API call to submit the native key
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network latency
+
+      // Assuming the submission is successful
+      toast({
+        title: "Key Submitted Successfully",
+        description: "Your native key has been processed.",
+      });
+      setHasSubmittedKey(true);
+      onSubmitted(true); // Indicate successful submission
+    } catch (error) {
+      toast({
+        title: "Submission Failed",
+        description: "There was an error submitting your key.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isWaitingForAdmin) {
     return (
       <div className="max-w-lg mx-auto space-y-6">
@@ -186,7 +226,7 @@ export default function KeySubmission({
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Waiting for Admin Approval</h3>
               <p className="text-gray-600 mb-6">
-                Your request has been submitted. Please wait while an admin reviews and provides the access link.
+                Your request has been submitted to the admin. Please wait for them to provide the access link.
               </p>
               <div className="flex justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -194,6 +234,83 @@ export default function KeySubmission({
             </div>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // Show native key input interface
+  if (keySubmissionId && !hasSubmittedKey) {
+    return (
+      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
+        <div className="space-y-6">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-orange rounded-full flex items-center justify-center mx-auto mb-4">
+              <Key className="text-white h-8 w-8" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Get Native Key</h3>
+          </div>
+
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-blue-800">Instructions:</p>
+                <p className="text-sm text-blue-700 mt-1">
+                  Click the "Get Native Key" button below to generate your access key. Then paste the key in the space provided and submit it.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => {
+              // Generate a native key
+              const nativeKey = `NK_${Math.random().toString(36).substr(2, 16).toUpperCase()}`;
+              setSubmittedKey(nativeKey);
+              // Auto-fill the input
+              const keyInput = document.getElementById('native-key-input') as HTMLInputElement;
+              if (keyInput) {
+                keyInput.value = nativeKey;
+              }
+            }}
+            className="w-full bg-secondary hover:bg-secondary-dark text-white"
+          >
+            <Key className="mr-2 h-4 w-4" />
+            Get Native Key
+          </Button>
+
+          <div className="space-y-3">
+            <label htmlFor="native-key-input" className="block text-sm font-medium text-gray-700">
+              Paste your key here:
+            </label>
+            <Input
+              id="native-key-input"
+              type="text"
+              placeholder="Enter your native key..."
+              value={submittedKey}
+              onChange={(e) => setSubmittedKey(e.target.value)}
+              className="font-mono text-sm"
+            />
+
+            <Button
+              onClick={handleSubmitKey}
+              disabled={isSubmitting || !submittedKey.trim()}
+              className="w-full bg-orange hover:bg-orange-dark text-white disabled:bg-gray-300"
+            >
+              {isSubmitting ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Submit
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -297,7 +414,7 @@ export default function KeySubmission({
               <Alert className={submissionStatus === "accepted" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
                 <AlertTriangle className={`h-4 w-4 ${submissionStatus === "accepted" ? "text-green-600" : "text-red-600"}`} />
                 <AlertDescription className={submissionStatus === "accepted" ? "text-green-700" : "text-red-700"}>
-                  {submissionStatus === "accepted" 
+                  {submissionStatus === "accepted"
                     ? "Key accepted! Waiting for admin approval to access the game."
                     : "Bot is currently being used by another user. Please try again later."
                   }
