@@ -4,15 +4,53 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Bot, Users, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import type { BotStatus } from "@/lib/types";
+import { apiRequest } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
+import * as z from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 interface BotSelectionProps {
-  onBotSelected: (botName: string) => void;
+  sessionId: string;
+  onConfigured: (keySubmissionId: string) => void;
 }
 
-export default function BotSelection({ onBotSelected }: BotSelectionProps) {
+const formSchema = z.object({
+  game: z.string().min(2, {
+    message: "Game must be at least 2 characters long.",
+  }),
+  mode: z.string().min(2, {
+    message: "Mode must be at least 2 characters long.",
+  }),
+  additionalSettings: z.string().optional(),
+});
+
+export default function BotSelection({ sessionId, onConfigured }: BotSelectionProps) {
   const [botStatuses, setBotStatuses] = useState<BotStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBot, setSelectedBot] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      game: "",
+      mode: "",
+      additionalSettings: "",
+    },
+  });
 
   useEffect(() => {
     fetchBotStatuses();
@@ -22,7 +60,7 @@ export default function BotSelection({ onBotSelected }: BotSelectionProps) {
 
   const fetchBotStatuses = async () => {
     try {
-      const response = await fetch('/api/bot-statuses');
+      const response = await apiRequest('/api/bot-statuses');
       if (response.ok) {
         const statuses = await response.json();
         setBotStatuses(statuses);
@@ -36,7 +74,50 @@ export default function BotSelection({ onBotSelected }: BotSelectionProps) {
 
   const handleBotSelect = (botName: string) => {
     setSelectedBot(botName);
-    onBotSelected(botName);
+  };
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
+    try {
+      // Create bot configuration
+      const configResponse = await apiRequest("POST", "/api/bot-config", {
+        sessionId,
+        game: values.game,
+        mode: values.mode,
+        additionalSettings: values.additionalSettings,
+      });
+
+      if (configResponse.ok) {
+        const config = await configResponse.json();
+
+        // Mark configuration as completed
+        await apiRequest("PUT", `/api/bot-config/${config.id}/complete`);
+
+        // Create access request
+        const accessResponse = await apiRequest("POST", "/api/request-access", {
+          sessionId
+        });
+
+        if (accessResponse.ok) {
+          const accessData = await accessResponse.json();
+
+          toast({
+            title: "Configuration complete!",
+            description: "Your request has been submitted to admin for approval.",
+          });
+
+          onConfigured(accessData.keySubmissionId);
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Configuration failed",
+        description: "An error occurred while configuring the bot.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isLoading) {
@@ -128,7 +209,68 @@ export default function BotSelection({ onBotSelected }: BotSelectionProps) {
                 </Alert>
               )}
 
-              {!bot.isInUse && (
+              {!bot.isInUse && selectedBot === bot.botName && (
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="game"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Game</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Adopt Me!" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              The game you want to automate.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="mode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Mode</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Farming" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              The mode of automation.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="additionalSettings"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Additional Settings</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Optional: e.g., specific pet preferences" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              Any other settings you want to configure.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <Button type="submit" className="w-full bg-primary hover:bg-primary-dark text-white" disabled={isSubmitting}>
+                      {isSubmitting ? "Submitting..." : "Submit Configuration"}
+                    </Button>
+                  </form>
+                </Form>
+              )}
+
+              {!bot.isInUse && selectedBot !== bot.botName && (
                 <Button
                   className="w-full mt-4 bg-primary hover:bg-primary-dark text-white"
                   onClick={(e) => {

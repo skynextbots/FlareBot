@@ -89,21 +89,26 @@ export default function KeySubmission({
       if (response.ok) {
         toast({
           title: "Request submitted!",
-          description: "Your access request has been sent to admin. Please wait for approval.",
+          description: "Your access request has been sent to admin. Please wait for the access link.",
         });
 
-        // Start polling for admin approval and link
+        // Start polling for admin-provided link
         const pollInterval = setInterval(async () => {
           try {
-            const statusResponse = await fetch(`/api/access-request-status/${sessionId}`);
+            const statusResponse = await fetch(`/api/key-status/${keySubmissionId}`);
             if (statusResponse.ok) {
               const statusData = await statusResponse.json();
 
-              if (statusData.approved && statusData.accessLink) {
+              if (statusData.status === 'link_provided') {
                 clearInterval(pollInterval);
-                setAdminApprovedLink(statusData.accessLink);
-                setIsWaitingForAdmin(false);
-                setShowKeyInput(true);
+                // Get the admin-provided link from key submission
+                const submissionResponse = await fetch(`/api/key-submission/${keySubmissionId}`);
+                if (submissionResponse.ok) {
+                  const submissionData = await submissionResponse.json();
+                  setAdminApprovedLink(submissionData.submittedKey); // Admin stores link in submittedKey temporarily
+                  setIsWaitingForAdmin(false);
+                  setShowKeyInput(true);
+                }
               }
             }
           } catch (error) {
@@ -111,18 +116,18 @@ export default function KeySubmission({
           }
         }, 3000);
 
-        // Stop polling after 10 minutes
+        // Stop polling after 15 minutes
         setTimeout(() => {
           clearInterval(pollInterval);
           if (isWaitingForAdmin) {
             setIsWaitingForAdmin(false);
             toast({
               title: "Request timeout",
-              description: "Admin approval timed out. Please try again.",
+              description: "Admin hasn't provided a link yet. Please try again later.",
               variant: "destructive",
             });
           }
-        }, 600000);
+        }, 900000);
       }
     } catch (error) {
       toast({

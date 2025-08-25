@@ -447,66 +447,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Request access from admin (new system)
-  app.post("/api/request-access", async (req, res) => {
-    try {
-      const { sessionId } = req.body;
-
-      const session = await storage.getVerificationSession(sessionId);
-      if (!session) {
-        return res.status(404).json({ error: "Session not found" });
-      }
-
-      // Create access request for admin review
-      const accessRequest = await storage.createAccessRequest({
-        sessionId,
-        status: "pending"
-      });
-
-      res.json({
-        success: true,
-        message: "Access request submitted to admin",
-        requestId: accessRequest.id
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Check access request status
-  app.get("/api/access-request-status/:sessionId", async (req, res) => {
-    try {
-      const request = await storage.getAccessRequestBySession(req.params.sessionId);
-      if (!request) {
-        return res.status(404).json({ error: "Access request not found" });
-      }
-
-      res.json({
-        approved: request.status === "approved",
-        accessLink: request.accessLink,
-        status: request.status
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Admin approve access request and provide link
-  app.post("/api/admin/approve-access/:requestId", async (req, res) => {
-    try {
-      const { accessLink } = req.body;
-
-      const approvedRequest = await storage.approveAccessRequest(req.params.requestId, accessLink);
-      if (!approvedRequest) {
-        return res.status(404).json({ error: "Access request not found" });
-      }
-
-      res.json(approvedRequest);
-    } catch (error) {
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
   // Request access from admin (updated system)
   app.post("/api/request-access", async (req, res) => {
     try {
@@ -517,15 +457,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      // Create key submission in pending state (no link or key yet)
+      // Create key submission in waiting_for_link state
       const keySubmission = await storage.createKeySubmission({
         sessionId: session.id,
-        submittedKey: null
+        submittedKey: null,
+        status: "waiting_for_link"
       });
 
       res.json({
         success: true,
-        message: "Request submitted to admin. Please wait for approval.",
+        message: "Request submitted to admin. Please wait for the access link.",
         keySubmissionId: keySubmission.id
       });
     } catch (error) {
@@ -605,21 +546,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Key submission not found" });
       }
 
-      // Update submission with admin-provided link and generate access key
+      // Update submission with admin-provided link
       const updatedSubmission = await storage.updateKeySubmission(submission.id, {
         adminApprovalTime: new Date(),
-        status: "link_provided"
-      });
-
-      // Also store the admin-provided link separately
-      await storage.updateKeySubmission(submission.id, {
-        submittedKey: accessLink // Temporarily store admin link here
+        status: "link_provided",
+        submittedKey: accessLink // Store admin-provided link here temporarily
       });
 
       res.json({
         success: true,
         message: "Access link provided to user"
       });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get key submission details
+  app.get("/api/key-submission/:keySubmissionId", async (req, res) => {
+    try {
+      const submission = await storage.getKeySubmission(req.params.keySubmissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Key submission not found" });
+      }
+
+      res.json(submission);
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }

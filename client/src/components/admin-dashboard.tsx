@@ -23,14 +23,6 @@ const formatDate = (dateString: string) => {
 };
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
-    activeUsers: 0,
-    pendingVerifications: 0,
-    botConfigs: 0,
-    systemUptime: "99.9%",
-  });
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [adminLinks, setAdminLinks] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
@@ -43,21 +35,6 @@ export default function AdminDashboard() {
     queryKey: ["/api/admin/dashboard"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
-
-  // Fetch dashboard data function
-  const fetchDashboardData = async () => {
-    const response = await fetch("/api/admin/dashboard");
-    if (response.ok) {
-      const data = await response.json();
-      setStats(data.stats);
-      setSubmissions(data.submissions);
-    }
-    setIsLoading(false);
-  };
-
-  // Use useEffect to fetch data on mount if not using @tanstack/react-query directly
-  // In this case, useQuery handles it, but we need a refetch function for manual triggers.
-  // The refetch function from useQuery is already available.
 
   const handleRefresh = () => {
     refetch();
@@ -108,30 +85,6 @@ export default function AdminDashboard() {
   const handleCloseUserDetails = () => {
     setShowUserDetails(false);
     setSelectedSubmission(null);
-  };
-
-  const handleGenerateLink = async (sessionId: string) => {
-    try {
-      const response = await fetch(`/api/generate-link/${sessionId}`, { method: 'POST' });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to generate link');
-      }
-      const { accessLink } = await response.json();
-
-      await navigator.clipboard.writeText(accessLink);
-      toast({
-        title: "Link generated!",
-        description: "Access link copied to clipboard.",
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      toast({
-        title: "Link generation failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
   };
 
   const handleProvideLink = async (submissionId: string) => {
@@ -201,7 +154,6 @@ export default function AdminDashboard() {
     }
   };
 
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'verified': return 'bg-success text-white';
@@ -217,6 +169,8 @@ export default function AdminDashboard() {
       case 'pending': return 'bg-orange text-white';
       case 'rejected': return 'bg-error text-white';
       case 'in_use': return 'bg-secondary text-white';
+      case 'link_provided': return 'bg-blue-500 text-white';
+      case 'waiting_for_link': return 'bg-yellow-500 text-white';
       default: return 'bg-gray-500 text-white';
     }
   };
@@ -730,16 +684,41 @@ export default function AdminDashboard() {
                           >
                             <Copy className="h-4 w-4 text-orange" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleGenerateLink(submission.id)}
-                            className="hover:bg-orange-light"
-                            data-testid={`button-link-${submission.id}`}
-                            title="Generate access link for user"
-                          >
-                            <Link className="h-4 w-4 text-black" />
-                          </Button>
+                          <div className="relative group">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="hover:bg-orange-light"
+                              title="Provide access link"
+                              onClick={() => { /* This button will trigger the input field below */ }}
+                              data-testid={`button-provide-link-${submission.id}`}
+                            >
+                              <Link className="h-4 w-4 text-black" />
+                            </Button>
+                            {/* Input field for the link */}
+                            <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+                              <div className="p-3 space-y-2">
+                                <label htmlFor={`link-input-${submission.id}`} className="block text-sm font-medium text-gray-700">
+                                  Enter Access Link:
+                                </label>
+                                <Input
+                                  id={`link-input-${submission.id}`}
+                                  type="text"
+                                  value={adminLinks[submission.id] || ''}
+                                  onChange={(e) => setAdminLinks({...adminLinks, [submission.id]: e.target.value})}
+                                  placeholder="Paste link here"
+                                  className="text-sm"
+                                />
+                                <Button
+                                  onClick={() => handleProvideLink(submission.id)}
+                                  className="w-full bg-orange hover:bg-orange-dark text-white"
+                                  size="sm"
+                                >
+                                  Send Link
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
                           <Button
                             variant="ghost"
                             size="sm"

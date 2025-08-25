@@ -173,6 +173,7 @@ export const insertAdminSessionSchema = createInsertSchema(adminSessions).pick({
 export const insertKeySubmissionSchema = createInsertSchema(keySubmissions).pick({
   sessionId: true,
   submittedKey: true,
+  status: true,
 });
 
 export const insertBotStatusSchema = createInsertSchema(botStatus).pick({

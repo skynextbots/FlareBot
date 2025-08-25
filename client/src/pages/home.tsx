@@ -24,6 +24,10 @@ export default function Home() {
   const [keySubmissionId, setKeySubmissionId] = useState<string>("");
   const [selectedBot, setSelectedBot] = useState<string>("");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [passwordSet, setPasswordSet] = useState(false);
+  const [botConfigured, setBotConfigured] = useState(false);
+  const [keySubmitted, setKeySubmitted] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState("");
 
   const handleLogout = () => {
     setCurrentStep("verification");
@@ -34,6 +38,10 @@ export default function Home() {
     setKeySubmissionId("");
     setSelectedBot("");
     setIsLoggedIn(false);
+    setPasswordSet(false);
+    setBotConfigured(false);
+    setKeySubmitted(false);
+    setGeneratedLink("");
   };
 
   const handleVerificationSuccess = (session: VerificationSession & { skipVerification?: boolean }) => {
@@ -67,7 +75,7 @@ export default function Home() {
 
   const handleGetAccessKey = async () => {
     if (!verificationSession) return;
-    
+
     try {
       // Create a pending request that admin needs to approve
       const response = await fetch('/api/request-access', {
@@ -79,10 +87,11 @@ export default function Home() {
           sessionId: verificationSession.sessionId
         }),
       });
-      
+
       if (response.ok) {
-        const { keySubmissionId: submissionId } = await response.json();
+        const { keySubmissionId: submissionId, accessLink: link } = await response.json();
         setKeySubmissionId(submissionId);
+        setAccessLink(link); // Store the link provided by the admin
         setCurrentStep("key-submission");
       }
     } catch (error) {
