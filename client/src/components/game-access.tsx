@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
+import { useEffect } from "react";
 
 interface GameAccessProps {
   keySubmissionId: string;
@@ -8,6 +9,19 @@ interface GameAccessProps {
 }
 
 export default function GameAccess({ keySubmissionId, onReturnToDashboard }: GameAccessProps) {
+  // Generate UUID for intent broadcast [End] when component loads
+  useEffect(() => {
+    const endIntentUUID = `END_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[INTENT BROADCAST - End] UUID: ${endIntentUUID} - Game access page reached for submission: ${keySubmissionId}`);
+    
+    // Optional: Send to backend to log the completion
+    fetch('/api/log-completion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keySubmissionId, endIntentUUID })
+    }).catch(console.error);
+  }, [keySubmissionId]);
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <Card className="shadow-md">
@@ -27,10 +41,10 @@ export default function GameAccess({ keySubmissionId, onReturnToDashboard }: Gam
               </p>
             </div>
 
-            {/* Return Button */}
+            {/* Return Button - Enhanced Design */}
             <Button
               onClick={onReturnToDashboard}
-              className="w-full bg-primary hover:bg-primary-dark text-white"
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-lg border-2 border-orange-300 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               data-testid="button-return-dashboard"
             >
               Return to Dashboard

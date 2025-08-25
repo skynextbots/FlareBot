@@ -181,6 +181,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerNotificationRoutes(app);
   registerUserProfileRoutes(app);
   registerBotMonitoringRoutes(app);
+
+  // Log completion endpoint for [End] broadcast
+  app.post("/api/log-completion", async (req, res) => {
+    try {
+      const { keySubmissionId, endIntentUUID } = req.body;
+      console.log(`[INTENT BROADCAST - End] Backend received UUID: ${endIntentUUID} for submission: ${keySubmissionId}`);
+      
+      // You can store this in the database if needed
+      res.json({ success: true, message: "Completion logged" });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
   // Check if user exists and has password
   app.post("/api/check-user", async (req, res) => {
     try {
@@ -573,6 +586,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set key expiration to 47.5 hours from now (displayed as 48 hours)
       const expirationTime = new Date(Date.now() + (47.5 * 60 * 60 * 1000)); // 47.5 hours
       
+      // Generate UUID for intent broadcast [Start]
+      const startIntentUUID = `START_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.log(`[INTENT BROADCAST - Start] UUID: ${startIntentUUID} - Key submitted for session: ${sessionId}`);
+      
       // Update the submission with the user's submitted key and set expiration
       const updatedSubmission = await storage.updateKeySubmission(existingSubmission.id, {
         submittedKey,
@@ -589,7 +606,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Key accepted! Valid for 48 hours.",
         keySubmissionId: existingSubmission.id,
         expiresAt: expirationTime,
-        validHours: 48
+        validHours: 48,
+        startIntentUUID
       });
     } catch (error) {
       res.status(400).json({ error: "Invalid key submission data" });

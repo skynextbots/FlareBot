@@ -10,6 +10,7 @@ import AdminLogin from "@/components/admin-login";
 import KeySubmission from "@/components/key-submission";
 import GameAccess from "@/components/game-access";
 import FeaturesShowcase from "@/components/features-showcase";
+import CategoriesSidebar from "@/components/categories-sidebar";
 import { Button } from "@/components/ui/button";
 import { Bot, Shield, User, LogOut } from "lucide-react";
 import type { VerificationSession, BotConfiguration } from "@/lib/types";
@@ -114,16 +115,19 @@ export default function Home() {
   };
 
   return (
-    <div className="font-roboto bg-gray-50 min-h-screen">
+    <div className="font-roboto bg-gray-50 min-h-screen relative">
+      {/* Categories Sidebar */}
+      <CategoriesSidebar currentPage={currentStep} onNavigate={(page) => console.log('Navigate to:', page)} />
+      
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white shadow-lg border-b-2 border-orange-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Bot className="text-white h-4 w-4" />
+              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Bot className="text-white h-5 w-5" />
               </div>
-              <h1 className="text-xl font-medium text-gray-900">FlareBot</h1>
+              <h1 className="text-xl font-bold text-gray-900 drop-shadow-sm">FlareBot</h1>
             </div>
             <div className="flex items-center space-x-4">
               {isLoggedIn && verificationSession && (
@@ -134,7 +138,7 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     onClick={handleLogout}
-                    className="text-gray-500 hover:text-red-600"
+                    className="text-red-500 hover:text-white hover:bg-red-500 border-2 border-red-300 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
                     data-testid="button-logout"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
@@ -145,7 +149,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 onClick={() => setShowAdminLogin(true)}
-                className="text-gray-500 hover:text-primary"
+                className="text-orange-600 hover:text-white hover:bg-orange-500 border-2 border-orange-300 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
                 data-testid="button-admin-login"
               >
                 <User className="mr-2 h-4 w-4" />
