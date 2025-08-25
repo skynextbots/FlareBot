@@ -42,7 +42,7 @@ export interface Submission {
   sessionStartTime?: string;
   sessionEndTime?: string;
   createdAt: string;
-  status: 'pending' | 'verified' | 'failed';
+  status: 'pending' | 'verified' | 'failed' | 'waiting_for_link' | 'link_provided' | 'accepted' | 'rejected';
 }
 
 export interface KeySubmission {

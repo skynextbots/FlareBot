@@ -6,8 +6,9 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(), // Existing field
-  isPasswordSet: boolean("is_password_set").default(false), // New field for tracking if a password is set
+  password: text("password"), // Make nullable initially
+  isPasswordSet: boolean("is_password_set").default(false),
+  verificationCode: text("verification_code"), // Add missing field
 });
 
 export const verificationSessions = pgTable("verification_sessions", {
@@ -45,6 +46,7 @@ export const keySubmissions = pgTable("key_submissions", {
   accessKey: text("access_key").notNull(),
   submittedKey: text("submitted_key"),
   status: text("status").notNull().default("pending"), // pending, accepted, rejected, in_use
+  keyStatus: text("key_status").default("waiting_for_link"), // Add missing field
   adminApprovalTime: timestamp("admin_approval_time"),
   gameAccessTime: timestamp("game_access_time"),
   nextIntentTime: timestamp("next_intent_time"),

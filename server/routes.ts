@@ -184,21 +184,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Roblox username not found" });
       }
 
-      // Check if user already exists with password
+      // Check if user already exists with password - but still require verification
       const existingUser = await storage.getUserByUsername(robloxUsername);
       if (existingUser && existingUser.isPasswordSet) {
-        // User already has account setup, skip verification
-        const session = await storage.createVerificationSession({ 
-          robloxUsername,
-          isVerified: true // Skip verification process
-        });
-
+        // User has account but still needs to verify for security
+        const session = await storage.createVerificationSession({ robloxUsername });
+        
         return res.json({
           sessionId: session.id,
-          verificationCode: session.verificationCode || existingUser.verificationCode,
+          verificationCode: session.verificationCode,
           expiresAt: session.expiresAt,
           robloxUsername: session.robloxUsername,
-          skipVerification: true, // Flag to indicate verification can be skipped
+          hasExistingAccount: true, // Just inform frontend user has account
         });
       }
 
@@ -306,8 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createUser({ 
           username: session.robloxUsername, 
           password, 
-          isPasswordSet: true,
-          verificationCode: session.verificationCode
+          isPasswordSet: true
         });
       }
 
@@ -457,6 +453,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
+      // Prevent duplicate submissions for the same session
+      const existingSubmission = await storage.getKeySubmissionBySession(sessionId);
+      if (existingSubmission) {
+        return res.json({
+          success: true,
+          message: "Request already submitted. Please wait for admin response.",
+          keySubmissionId: existingSubmission.id
+        });
+      }
+
       // Create key submission in waiting_for_link state
       const keySubmission = await storage.createKeySubmission({
         sessionId: session.id,
@@ -553,9 +559,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         submittedKey: accessLink // Store admin-provided link here temporarily
       });
 
-      // Also update the key status to show progression
+      // Update the key status to show progression - this fixes the 404 errors
       await storage.updateKeySubmission(submission.id, {
-        keyStatus: "link_provided"
+        status: "link_provided"
       });
 
       res.json({

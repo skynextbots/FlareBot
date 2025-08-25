@@ -171,6 +171,8 @@ export default function AdminDashboard() {
       case 'in_use': return 'bg-secondary text-white';
       case 'link_provided': return 'bg-blue-500 text-white';
       case 'waiting_for_link': return 'bg-yellow-500 text-white';
+      case 'verified': return 'bg-green-500 text-white';
+      case 'failed': return 'bg-red-500 text-white';
       default: return 'bg-gray-500 text-white';
     }
   };
@@ -661,9 +663,9 @@ export default function AdminDashboard() {
                         {submission.game || '-'}
                       </TableCell>
                       <TableCell>
-                        {submission.keyStatus ? (
-                          <Badge className={`${getKeyStatusColor(submission.keyStatus)} capitalize`}>
-                            {submission.keyStatus}
+                        {submission.status ? (
+                          <Badge className={`${getKeyStatusColor(submission.status)} capitalize`}>
+                            {submission.status}
                           </Badge>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -675,7 +677,7 @@ export default function AdminDashboard() {
                       <TableCell>
                         <div className="space-y-2">
                           {/* Show different UI based on submission status */}
-                          {submission.keyStatus === 'pending' && (
+                          {submission.status === 'pending' && (
                             <div className="space-y-2">
                               <div className="text-xs text-orange font-medium">⏳ User waiting for link</div>
                               <div className="flex items-center space-x-2">
@@ -700,7 +702,7 @@ export default function AdminDashboard() {
                             </div>
                           )}
                           
-                          {submission.keyStatus === 'link_provided' && (
+                          {submission.status === 'link_provided' && (
                             <div className="space-y-1">
                               <div className="text-xs text-blue-600 font-medium">✓ Link sent - waiting for key</div>
                               <Button
@@ -714,7 +716,7 @@ export default function AdminDashboard() {
                             </div>
                           )}
                           
-                          {(!submission.keyStatus || submission.keyStatus === 'waiting_for_link') && (
+                          {(!submission.status || submission.status === 'waiting_for_link') && (
                             <div className="flex items-center space-x-2">
                               <Button
                                 variant="ghost"
