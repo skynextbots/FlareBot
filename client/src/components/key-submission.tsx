@@ -264,14 +264,8 @@ export default function KeySubmission({
 
           <Button
             onClick={() => {
-              // Generate a native key
-              const nativeKey = `NK_${Math.random().toString(36).substr(2, 16).toUpperCase()}`;
-              setSubmittedKey(nativeKey);
-              // Auto-fill the input
-              const keyInput = document.getElementById('native-key-input') as HTMLInputElement;
-              if (keyInput) {
-                keyInput.value = nativeKey;
-              }
+              // Redirect to external link
+              window.open('https://getnative.cc/linkvertise', '_blank');
             }}
             className="w-full bg-secondary hover:bg-secondary-dark text-white"
           >
