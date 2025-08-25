@@ -117,19 +117,28 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
         // Start polling for admin approval
         const pollForApproval = setInterval(async () => {
           try {
-            const statusResponse = await apiRequest("GET", `/api/key-submission/${accessData.keySubmissionId}/status`);
+            const statusResponse = await fetch(`/api/key-status/${accessData.keySubmissionId}`);
             if (statusResponse.ok) {
               const statusData = await statusResponse.json();
-              if (statusData.accessLink) {
+              // Check if admin has provided a link (status becomes 'link_provided')
+              if (statusData.status === 'link_provided') {
                 clearInterval(pollForApproval);
                 setIsWaitingForAdmin(false);
                 onConfigured(accessData.keySubmissionId);
               }
+            } else if (statusResponse.status === 404) {
+              // If submission not found, stop polling
+              console.log('Submission not found, stopping polling');
+              clearInterval(pollForApproval);
+              setIsWaitingForAdmin(false);
             }
           } catch (error) {
             console.error('Error polling for approval:', error);
+            // Stop polling on repeated errors to prevent infinite spam
+            clearInterval(pollForApproval);
+            setIsWaitingForAdmin(false);
           }
-        }, 2000);
+        }, 3000);
         
         // Clean up interval after 10 minutes
         setTimeout(() => clearInterval(pollForApproval), 600000);
