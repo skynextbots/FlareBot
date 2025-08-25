@@ -553,6 +553,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         submittedKey: accessLink // Store admin-provided link here temporarily
       });
 
+      // Also update the key status to show progression
+      await storage.updateKeySubmission(submission.id, {
+        keyStatus: "link_provided"
+      });
+
       res.json({
         success: true,
         message: "Access link provided to user"

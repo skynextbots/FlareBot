@@ -673,62 +673,75 @@ export default function AdminDashboard() {
                         {formatTimeAgo(submission.createdAt)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(submission.robloxUsername, 'Username')}
-                            className="hover:bg-orange-light"
-                            data-testid={`button-copy-username-${submission.id}`}
-                            title="Copy username"
-                          >
-                            <Copy className="h-4 w-4 text-orange" />
-                          </Button>
-                          <div className="relative group">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="hover:bg-orange-light"
-                              title="Provide access link"
-                              onClick={() => { /* This button will trigger the input field below */ }}
-                              data-testid={`button-provide-link-${submission.id}`}
-                            >
-                              <Link className="h-4 w-4 text-black" />
-                            </Button>
-                            {/* Input field for the link */}
-                            <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
-                              <div className="p-3 space-y-2">
-                                <label htmlFor={`link-input-${submission.id}`} className="block text-sm font-medium text-gray-700">
-                                  Enter Access Link:
-                                </label>
+                        <div className="space-y-2">
+                          {/* Show different UI based on submission status */}
+                          {submission.keyStatus === 'pending' && (
+                            <div className="space-y-2">
+                              <div className="text-xs text-orange font-medium">⏳ User waiting for link</div>
+                              <div className="flex items-center space-x-2">
                                 <Input
-                                  id={`link-input-${submission.id}`}
                                   type="text"
                                   value={adminLinks[submission.id] || ''}
                                   onChange={(e) => setAdminLinks({...adminLinks, [submission.id]: e.target.value})}
-                                  placeholder="Paste link here"
-                                  className="text-sm"
+                                  placeholder="Paste Discord/website link here..."
+                                  className="text-xs h-8"
+                                  data-testid={`input-link-${submission.id}`}
                                 />
                                 <Button
                                   onClick={() => handleProvideLink(submission.id)}
-                                  className="w-full bg-orange hover:bg-orange-dark text-white"
+                                  className="bg-orange hover:bg-orange-dark text-white h-8 px-3"
                                   size="sm"
+                                  disabled={!adminLinks[submission.id]}
+                                  data-testid={`button-send-link-${submission.id}`}
                                 >
-                                  Send Link
+                                  Send
                                 </Button>
                               </div>
                             </div>
+                          )}
+                          
+                          {submission.keyStatus === 'link_provided' && (
+                            <div className="space-y-1">
+                              <div className="text-xs text-blue-600 font-medium">✓ Link sent - waiting for key</div>
+                              <Button
+                                onClick={() => handleApproveKey(submission.id)}
+                                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3"
+                                size="sm"
+                                data-testid={`button-approve-${submission.id}`}
+                              >
+                                Approve Access
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {(!submission.keyStatus || submission.keyStatus === 'waiting_for_link') && (
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(submission.robloxUsername, 'Username')}
+                                className="hover:bg-orange-light h-8"
+                                data-testid={`button-copy-username-${submission.id}`}
+                                title="Copy username"
+                              >
+                                <Copy className="h-4 w-4 text-orange" />
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {/* Delete button - always available */}
+                          <div className="mt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteSubmission(submission.id)}
+                              className="hover:bg-red-100 h-8"
+                              data-testid={`button-delete-${submission.id}`}
+                              title="Delete submission"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteSubmission(submission.id)}
-                            className="hover:bg-red-100"
-                            data-testid={`button-delete-${submission.id}`}
-                            title="Delete submission"
-                          >
-                            <Trash2 className="h-4 w-4 text-error" />
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
