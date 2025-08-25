@@ -156,15 +156,6 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* AI Systems Status - Always visible */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">AI-Powered Platform</h2>
-          <div className="grid gap-6">
-            <AIFeatures sessionId={verificationSession?.sessionId || ""} />
-            <WebsiteAISystems />
-          </div>
-        </div>
-
         {currentStep === "verification" && (
           <div className="space-y-8">
             <div className="text-center">
@@ -174,6 +165,15 @@ export default function Home() {
               </p>
             </div>
             <VerificationForm onSuccess={handleVerificationSuccess} />
+            
+            {/* AI Systems Status */}
+            <div className="mt-12 bg-white rounded-lg shadow-sm border p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">AI-Powered Platform</h2>
+              <div className="grid gap-6">
+                <AIFeatures sessionId="" />
+                <WebsiteAISystems />
+              </div>
+            </div>
           </div>
         )}
 
@@ -209,7 +209,7 @@ export default function Home() {
                 Choose a bot to configure for your gaming experience.
               </p>
             </div>
-            <BotSelection onBotSelected={handleBotSelected} />
+            <BotSelection sessionId={verificationSession?.sessionId || ""} onConfigured={(keySubmissionId) => setKeySubmissionId(keySubmissionId)} />
           </div>
         )}
 

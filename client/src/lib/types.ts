@@ -4,6 +4,7 @@ export interface VerificationSession {
   expiresAt: string;
   robloxUsername: string;
   isVerified?: boolean;
+  skipVerification?: boolean;
 }
 
 export interface BotConfiguration {
