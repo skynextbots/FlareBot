@@ -165,15 +165,6 @@ export default function Home() {
               </p>
             </div>
             <VerificationForm onSuccess={handleVerificationSuccess} />
-            
-            {/* AI Systems Status */}
-            <div className="mt-12 bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">AI-Powered Platform</h2>
-              <div className="grid gap-6">
-                <AIFeatures sessionId="" />
-                <WebsiteAISystems />
-              </div>
-            </div>
           </div>
         )}
 
