@@ -38,28 +38,11 @@ const formSchema = z.object({
 });
 
 const gameOptions = [
-  "Adopt Me!",
-  "Blox Fruits", 
-  "Pet Simulator X",
-  "Mining Simulator 2",
-  "Bee Swarm Simulator",
-  "Arsenal",
-  "Jailbreak",
-  "Tower Defense Simulator",
-  "Piggy",
-  "Brookhaven RP"
+  "Dead Rails"
 ];
 
 const modeOptions = [
-  "Farming",
-  "Auto Collect",
-  "Pet Training",
-  "Resource Gathering",
-  "XP Grinding",
-  "Currency Farming",
-  "Auto Battle",
-  "Idle Mode",
-  "Custom Script"
+  "Auto Bonds"
 ];
 
 export default function BotSelection({ sessionId, onConfigured }: BotSelectionProps) {
@@ -329,7 +312,7 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
                               </SelectContent>
                             </Select>
                             <FormDescription>
-                              The mode of automation.
+                              Main Support: Native Hub
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
