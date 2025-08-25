@@ -65,7 +65,7 @@ export default function KeySubmission({
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(accessLink);
+      await navigator.clipboard.writeText("https://getnative.cc/linkvertise");
       toast({
         title: "Link copied!",
         description: "Access link copied to clipboard.",
@@ -256,22 +256,47 @@ export default function KeySubmission({
               <div className="text-left">
                 <p className="text-sm font-medium text-blue-800">Instructions:</p>
                 <p className="text-sm text-blue-700 mt-1">
-                  Click the "Get Native Key" button below to generate your access key. Then paste the key in the space provided and submit it.
+                  1. Click the "Get Native Key" button or copy the link below to access the key generation page
+                </p>
+                <p className="text-sm text-blue-700">
+                  2. The link contains advertisements - navigate through them to get your key
+                </p>
+                <p className="text-sm text-blue-700">
+                  3. Copy the provided key and paste it in the text box below
                 </p>
               </div>
             </div>
           </div>
 
-          <Button
-            onClick={() => {
-              // Redirect to external link
-              window.open('https://getnative.cc/linkvertise', '_blank');
-            }}
-            className="w-full bg-secondary hover:bg-secondary-dark text-white"
-          >
-            <Key className="mr-2 h-4 w-4" />
-            Get Native Key
-          </Button>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Access Link:</label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  value="https://getnative.cc/linkvertise"
+                  readOnly
+                  className="flex-1 bg-gray-50 text-sm"
+                />
+                <Button
+                  onClick={copyLink}
+                  className="bg-gray-600 hover:bg-gray-700 text-white"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => {
+                // Redirect to external link
+                window.open('https://getnative.cc/linkvertise', '_blank');
+              }}
+              className="w-full bg-secondary hover:bg-secondary-dark text-white"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open Link in New Tab
+            </Button>
+          </div>
 
           <div className="space-y-3">
             <label htmlFor="native-key-input" className="block text-sm font-medium text-gray-700">

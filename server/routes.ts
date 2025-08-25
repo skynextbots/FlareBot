@@ -566,32 +566,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Session ID is required" });
       }
 
+      if (!submittedKey || submittedKey.trim() === "") {
+        return res.status(400).json({ error: "Key is required" });
+      }
+
       const existingSubmission = await storage.getKeySubmissionBySession(sessionId);
       if (!existingSubmission) {
         return res.status(404).json({ error: "Key submission not found" });
       }
 
-      // Check if submitted key matches the generated key
-      const isKeyValid = submittedKey === existingSubmission.accessKey;
+      // Update the submission with the user's submitted key and set status to pending admin approval
+      const updatedSubmission = await storage.updateKeySubmission(existingSubmission.id, {
+        submittedKey,
+        status: "pending_approval"
+      });
 
-      if (isKeyValid) {
-        const updatedSubmission = await storage.updateKeySubmission(existingSubmission.id, {
-          submittedKey,
-          status: "pending"
-        });
-        res.json({
-          success: true,
-          status: "accepted",
-          message: "Key accepted! Waiting for admin approval.",
-          keySubmissionId: existingSubmission.id
-        });
-      } else {
-        res.json({
-          success: false,
-          status: "in_use",
-          message: "Bot is being used right now. Please try again later."
-        });
-      }
+      res.json({
+        success: true,
+        status: "accepted",
+        message: "Key submitted successfully! Waiting for admin approval.",
+        keySubmissionId: existingSubmission.id
+      });
     } catch (error) {
       res.status(400).json({ error: "Invalid key submission data" });
     }
@@ -680,6 +675,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(approvedSubmission);
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Admin reject key
+  app.post("/api/admin/reject-key/:keySubmissionId", async (req, res) => {
+    try {
+      const submission = await storage.getKeySubmission(req.params.keySubmissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Key submission not found" });
+      }
+
+      const rejectedSubmission = await storage.updateKeySubmission(req.params.keySubmissionId, {
+        status: "rejected",
+        adminApprovalTime: new Date()
+      });
+
+      res.json({
+        success: true,
+        message: "Key rejected successfully"
+      });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }

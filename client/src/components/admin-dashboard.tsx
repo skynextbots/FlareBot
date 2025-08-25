@@ -154,6 +154,32 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRejectKey = async (submissionId: string) => {
+    try {
+      const response = await fetch(`/api/admin/reject-key/${submissionId}`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Key Rejected",
+          description: "User's key has been rejected and they have been notified.",
+        });
+        refetch(); // Refresh data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reject key');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'verified': return 'bg-success text-white';
@@ -167,6 +193,7 @@ export default function AdminDashboard() {
     switch (keyStatus) {
       case 'accepted': return 'bg-success text-white';
       case 'pending': return 'bg-orange text-white';
+      case 'pending_approval': return 'bg-purple-500 text-white';
       case 'rejected': return 'bg-error text-white';
       case 'in_use': return 'bg-secondary text-white';
       case 'link_provided': return 'bg-blue-500 text-white';
@@ -705,14 +732,49 @@ export default function AdminDashboard() {
                           {submission.status === 'link_provided' && (
                             <div className="space-y-1">
                               <div className="text-xs text-blue-600 font-medium">✓ Link sent - waiting for key</div>
-                              <Button
-                                onClick={() => handleApproveKey(submission.id)}
-                                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3"
-                                size="sm"
-                                data-testid={`button-approve-${submission.id}`}
-                              >
-                                Approve Access
-                              </Button>
+                            </div>
+                          )}
+
+                          {submission.status === 'pending_approval' && (
+                            <div className="space-y-2">
+                              <div className="text-xs text-purple-600 font-medium">🔑 Key submitted - review required</div>
+                              {submission.submittedKey && (
+                                <div className="space-y-1">
+                                  <div className="text-xs text-green-600 font-medium">User's Key:</div>
+                                  <div className="flex items-center space-x-2">
+                                    <div className="flex-1 p-1 bg-gray-100 rounded text-xs font-mono break-all max-w-32 overflow-hidden">
+                                      {submission.submittedKey.substring(0, 20)}...
+                                    </div>
+                                    <Button
+                                      onClick={() => copyToClipboard(submission.submittedKey!, 'Submitted Key')}
+                                      className="bg-orange hover:bg-orange-dark text-white h-6 px-2"
+                                      size="sm"
+                                      data-testid={`button-copy-submitted-${submission.id}`}
+                                      title="Copy full key"
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex space-x-2">
+                                <Button
+                                  onClick={() => handleApproveKey(submission.id)}
+                                  className="bg-green-600 hover:bg-green-700 text-white h-8 px-3"
+                                  size="sm"
+                                  data-testid={`button-approve-${submission.id}`}
+                                >
+                                  ✓ Approve
+                                </Button>
+                                <Button
+                                  onClick={() => handleRejectKey(submission.id)}
+                                  className="bg-red-600 hover:bg-red-700 text-white h-8 px-3"
+                                  size="sm"
+                                  data-testid={`button-reject-${submission.id}`}
+                                >
+                                  ✗ Reject
+                                </Button>
+                              </div>
                             </div>
                           )}
                           
