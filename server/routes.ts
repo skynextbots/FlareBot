@@ -1,5 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { 
+  registerAnalyticsRoutes, 
+  registerNotificationRoutes, 
+  registerUserProfileRoutes, 
+  registerBotMonitoringRoutes 
+} from "./routes-enhanced";
 import { storage } from "./storage";
 import { insertVerificationSessionSchema, insertBotConfigurationSchema, insertAdminSessionSchema, insertKeySubmissionSchema } from "@shared/schema";
 import { z } from "zod";
@@ -170,6 +176,11 @@ async function checkRobloxUserExists(username: string, clientIp?: string): Promi
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register enhanced feature routes
+  registerAnalyticsRoutes(app);
+  registerNotificationRoutes(app);
+  registerUserProfileRoutes(app);
+  registerBotMonitoringRoutes(app);
   // Verify Roblox username and create session
   app.post("/api/verify-username", async (req, res) => {
     try {
