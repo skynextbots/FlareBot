@@ -534,23 +534,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Create key submission and automatically provide the link
+      // Create key submission - user will provide their own key from the link
       const keySubmission = await storage.createKeySubmission({
         sessionId: session.id,
-        submittedKey: "https://getnative.cc/linkvertise", // Auto-provide the link
-        status: "link_provided"
-      });
-
-      // Update with admin approval time to simulate admin action
-      await storage.updateKeySubmission(keySubmission.id, {
-        adminApprovalTime: new Date(),
-        status: "link_provided"
+        submittedKey: null, // User will provide this later
+        status: "waiting_for_key"
       });
 
       res.json({
         success: true,
-        message: "Access link provided automatically.",
-        keySubmissionId: keySubmission.id
+        message: "Please visit the link and submit your key.",
+        keySubmissionId: keySubmission.id,
+        accessLink: "https://getnative.cc/linkvertise"
       });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -575,17 +570,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Key submission not found" });
       }
 
-      // Update the submission with the user's submitted key and set status to pending admin approval
+      // Set key expiration to 47.5 hours from now (displayed as 48 hours)
+      const expirationTime = new Date(Date.now() + (47.5 * 60 * 60 * 1000)); // 47.5 hours
+      
+      // Update the submission with the user's submitted key and set expiration
       const updatedSubmission = await storage.updateKeySubmission(existingSubmission.id, {
         submittedKey,
-        status: "pending_approval"
+        accessKey: submittedKey, // Store the user's key as the access key
+        status: "active",
+        adminApprovalTime: new Date(),
+        gameAccessTime: new Date(),
+        nextIntentTime: expirationTime
       });
 
       res.json({
         success: true,
         status: "accepted",
-        message: "Key submitted successfully! Waiting for admin approval.",
-        keySubmissionId: existingSubmission.id
+        message: "Key accepted! Valid for 48 hours.",
+        keySubmissionId: existingSubmission.id,
+        expiresAt: expirationTime,
+        validHours: 48
       });
     } catch (error) {
       res.status(400).json({ error: "Invalid key submission data" });

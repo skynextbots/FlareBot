@@ -267,7 +267,8 @@ export class MemStorage implements IStorage {
         await this.createUser({
           username: session.robloxUsername,
           password: null,
-          isPasswordSet: false
+          isPasswordSet: false,
+          verificationCode: code
         });
       }
     }
@@ -452,14 +453,15 @@ export class MemStorage implements IStorage {
 
   async createKeySubmission(submission: InsertKeySubmission): Promise<KeySubmission> {
     const id = randomUUID();
-    const accessKey = `FK_${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+    // Don't auto-generate keys - users will provide their own
+    const accessKey = ""; // Empty until user provides key
     const newSubmission: KeySubmission = {
       id,
       sessionId: submission.sessionId || null,
       submittedKey: submission.submittedKey || null,
       accessKey,
       status: "pending",
-      keyStatus: "waiting_for_link",
+      keyStatus: "waiting_for_user_key",
       adminApprovalTime: null,
       gameAccessTime: null,
       nextIntentTime: null,

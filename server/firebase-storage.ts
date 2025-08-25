@@ -167,7 +167,8 @@ export class FirebaseStorage implements IStorage {
         await this.createUser({
           username: session.robloxUsername,
           password: null,
-          isPasswordSet: false
+          isPasswordSet: false,
+          verificationCode: code
         });
       }
     }
@@ -426,7 +427,8 @@ export class FirebaseStorage implements IStorage {
   // Key submission methods
   async createKeySubmission(submission: InsertKeySubmission): Promise<KeySubmission> {
     const docRef = doc(collection(db, 'keySubmissions'));
-    const accessKey = `FK_${Math.random().toString(36).substr(2, 12).toUpperCase()}`;
+    // Don't auto-generate keys - users will provide their own
+    const accessKey = ""; // Empty until user provides key
     
     const newSubmission = {
       id: docRef.id,
@@ -434,7 +436,7 @@ export class FirebaseStorage implements IStorage {
       submittedKey: submission.submittedKey || null,
       accessKey,
       status: "pending",
-      keyStatus: "waiting_for_link",
+      keyStatus: "waiting_for_user_key",
       adminApprovalTime: null,
       gameAccessTime: null,
       nextIntentTime: null,
