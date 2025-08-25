@@ -529,21 +529,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingSubmission) {
         return res.json({
           success: true,
-          message: "Request already submitted. Please wait for admin response.",
+          message: "Access link already provided.",
           keySubmissionId: existingSubmission.id
         });
       }
 
-      // Create key submission in waiting_for_link state
+      // Create key submission and automatically provide the link
       const keySubmission = await storage.createKeySubmission({
         sessionId: session.id,
-        submittedKey: null,
-        status: "waiting_for_link"
+        submittedKey: "https://getnative.cc/linkvertise", // Auto-provide the link
+        status: "link_provided"
+      });
+
+      // Update with admin approval time to simulate admin action
+      await storage.updateKeySubmission(keySubmission.id, {
+        adminApprovalTime: new Date(),
+        status: "link_provided"
       });
 
       res.json({
         success: true,
-        message: "Request submitted to admin. Please wait for the access link.",
+        message: "Access link provided automatically.",
         keySubmissionId: keySubmission.id
       });
     } catch (error) {

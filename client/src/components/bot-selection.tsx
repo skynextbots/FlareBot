@@ -110,51 +110,28 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
         const accessData = await accessResponse.json();
 
         toast({
-          title: "Request submitted!",
-          description: "Waiting for admin to provide access link...",
+          title: "Access link provided!",
+          description: "You can now proceed to get your native key.",
         });
         
-        // Start polling for admin approval
-        const pollForApproval = setInterval(async () => {
-          try {
-            const statusResponse = await fetch(`/api/key-status/${accessData.keySubmissionId}`);
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
-              // Check if admin has provided a link (status becomes 'link_provided')
-              if (statusData.status === 'link_provided') {
-                clearInterval(pollForApproval);
-                setIsWaitingForAdmin(false);
-                onConfigured(accessData.keySubmissionId);
-              }
-            } else if (statusResponse.status === 404) {
-              // If submission not found, stop polling
-              console.log('Submission not found, stopping polling');
-              clearInterval(pollForApproval);
-              setIsWaitingForAdmin(false);
-            }
-          } catch (error) {
-            console.error('Error polling for approval:', error);
-            // Stop polling on repeated errors to prevent infinite spam
-            clearInterval(pollForApproval);
-            setIsWaitingForAdmin(false);
-          }
-        }, 3000);
-        
-        // Clean up interval after 10 minutes
-        setTimeout(() => clearInterval(pollForApproval), 600000);
+        // Since link is auto-provided, directly proceed to key submission
+        setIsWaitingForAdmin(false);
+        onConfigured(accessData.keySubmissionId);
       } else {
-        // Even if request fails, keep showing loading until admin responds
         toast({
-          title: "Request submitted!",
-          description: "Waiting for admin approval...",
+          title: "Request failed",
+          description: "Failed to submit access request. Please try again.",
+          variant: "destructive",
         });
+        setIsWaitingForAdmin(false);
       }
     } catch (error) {
-      // Even if there's an error, show loading screen and wait for admin
       toast({
-        title: "Request submitted!",
-        description: "Waiting for admin approval...",
+        title: "Request failed",
+        description: "An error occurred while requesting access. Please try again.",
+        variant: "destructive",
       });
+      setIsWaitingForAdmin(false);
     } finally {
       setIsSubmitting(false);
     }
