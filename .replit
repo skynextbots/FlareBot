@@ -1,5 +1,6 @@
 modules = ["nodejs-20", "postgresql-16", "python-3.11", "web"]
 run = "npm run dev"
+run = "python auto_push.py"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
