@@ -12,6 +12,8 @@ import FeaturesShowcase from "@/components/features-showcase";
 import { Button } from "@/components/ui/button";
 import { Bot, Shield, User, LogOut } from "lucide-react";
 import type { VerificationSession, BotConfiguration } from "@/lib/types";
+import AIFeatures from "@/components/ai-features";
+import WebsiteAISystems from "@/components/website-ai-systems";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -154,6 +156,15 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* AI Systems Status - Always visible */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">AI-Powered Platform</h2>
+          <div className="grid gap-6">
+            <AIFeatures sessionId={verificationSession?.sessionId || ""} />
+            <WebsiteAISystems />
+          </div>
+        </div>
+
         {currentStep === "verification" && (
           <div className="space-y-8">
             <div className="text-center">
@@ -167,8 +178,8 @@ export default function Home() {
         )}
 
         {currentStep === "code" && verificationSession && (
-          <VerificationCode 
-            session={verificationSession} 
+          <VerificationCode
+            session={verificationSession}
             onVerified={handleCodeVerified}
           />
         )}
@@ -182,8 +193,8 @@ export default function Home() {
               </p>
             </div>
             <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
-              <PasswordSet 
-                sessionId={verificationSession.sessionId} 
+              <PasswordSet
+                sessionId={verificationSession.sessionId}
                 onPasswordSet={handlePasswordSet}
               />
             </div>
@@ -203,7 +214,7 @@ export default function Home() {
         )}
 
         {currentStep === "config" && verificationSession && (
-          <BotConfig 
+          <BotConfig
             sessionId={verificationSession.sessionId}
             onComplete={handleConfigComplete}
           />
@@ -251,7 +262,7 @@ export default function Home() {
 
       {/* Admin Login Modal */}
       {showAdminLogin && (
-        <AdminLogin 
+        <AdminLogin
           onClose={() => setShowAdminLogin(false)}
           onSuccess={() => {
             setShowAdminLogin(false);
