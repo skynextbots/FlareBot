@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bot, Users, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Bot, Users, Clock, CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import type { BotStatus } from "@/lib/types";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
   Form,
@@ -27,20 +28,46 @@ interface BotSelectionProps {
 }
 
 const formSchema = z.object({
-  game: z.string().min(2, {
-    message: "Game must be at least 2 characters long.",
+  game: z.string().min(1, {
+    message: "Please select a game.",
   }),
-  mode: z.string().min(2, {
-    message: "Mode must be at least 2 characters long.",
+  mode: z.string().min(1, {
+    message: "Please select a mode.",
   }),
   additionalSettings: z.string().optional(),
 });
+
+const gameOptions = [
+  "Adopt Me!",
+  "Blox Fruits", 
+  "Pet Simulator X",
+  "Mining Simulator 2",
+  "Bee Swarm Simulator",
+  "Arsenal",
+  "Jailbreak",
+  "Tower Defense Simulator",
+  "Piggy",
+  "Brookhaven RP"
+];
+
+const modeOptions = [
+  "Farming",
+  "Auto Collect",
+  "Pet Training",
+  "Resource Gathering",
+  "XP Grinding",
+  "Currency Farming",
+  "Auto Battle",
+  "Idle Mode",
+  "Custom Script"
+];
 
 export default function BotSelection({ sessionId, onConfigured }: BotSelectionProps) {
   const [botStatuses, setBotStatuses] = useState<BotStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBot, setSelectedBot] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isWaitingForAdmin, setIsWaitingForAdmin] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -103,10 +130,30 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
 
           toast({
             title: "Configuration complete!",
-            description: "Your request has been submitted to admin for approval.",
+            description: "Waiting for admin to provide access link...",
           });
 
-          onConfigured(accessData.keySubmissionId);
+          setIsWaitingForAdmin(true);
+          
+          // Start polling for admin approval
+          const pollForApproval = setInterval(async () => {
+            try {
+              const statusResponse = await apiRequest("GET", `/api/key-submission/${accessData.keySubmissionId}/status`);
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                if (statusData.accessLink) {
+                  clearInterval(pollForApproval);
+                  setIsWaitingForAdmin(false);
+                  onConfigured(accessData.keySubmissionId);
+                }
+              }
+            } catch (error) {
+              console.error('Error polling for approval:', error);
+            }
+          }, 2000);
+          
+          // Clean up interval after 10 minutes
+          setTimeout(() => clearInterval(pollForApproval), 600000);
         }
       }
     } catch (error) {
@@ -129,6 +176,27 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-32 bg-gray-200 rounded"></div>
             ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading screen while waiting for admin
+  if (isWaitingForAdmin) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Waiting for Admin Approval</h2>
+          <p className="text-gray-600 mb-4">Your configuration has been submitted. Please wait while the admin provides your access link.</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+            <div className="flex items-center space-x-2 text-blue-800">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm font-medium">This may take a few minutes...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -219,9 +287,20 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Game</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Adopt Me!" {...field} />
-                            </FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a game" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {gameOptions.map((game) => (
+                                  <SelectItem key={game} value={game}>
+                                    {game}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormDescription>
                               The game you want to automate.
                             </FormDescription>
@@ -235,9 +314,20 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Mode</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Farming" {...field} />
-                            </FormControl>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a mode" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {modeOptions.map((mode) => (
+                                  <SelectItem key={mode} value={mode}>
+                                    {mode}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormDescription>
                               The mode of automation.
                             </FormDescription>
