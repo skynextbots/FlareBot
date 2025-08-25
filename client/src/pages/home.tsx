@@ -10,7 +10,7 @@ import KeySubmission from "@/components/key-submission";
 import GameAccess from "@/components/game-access";
 import FeaturesShowcase from "@/components/features-showcase";
 import { Button } from "@/components/ui/button";
-import { Bot, Shield, User } from "lucide-react";
+import { Bot, Shield, User, LogOut } from "lucide-react";
 import type { VerificationSession, BotConfiguration } from "@/lib/types";
 
 export default function Home() {
@@ -23,9 +23,22 @@ export default function Home() {
   const [accessKey, setAccessKey] = useState<string>("");
   const [keySubmissionId, setKeySubmissionId] = useState<string>("");
   const [selectedBot, setSelectedBot] = useState<string>("");
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+
+  const handleLogout = () => {
+    setCurrentStep("verification");
+    setVerificationSession(null);
+    setBotConfig(null);
+    setAccessLink("");
+    setAccessKey("");
+    setKeySubmissionId("");
+    setSelectedBot("");
+    setIsLoggedIn(false);
+  };
 
   const handleVerificationSuccess = (session: VerificationSession & { skipVerification?: boolean }) => {
     setVerificationSession(session);
+    setIsLoggedIn(true);
     if (session.skipVerification) {
       // Skip to bot selection for existing users
       setCurrentStep("bot-selection");
@@ -56,19 +69,24 @@ export default function Home() {
     if (!verificationSession) return;
     
     try {
-      const response = await fetch(`/api/generate-link/${verificationSession.sessionId}`, {
+      // Create a pending request that admin needs to approve
+      const response = await fetch('/api/request-access', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: verificationSession.sessionId
+        }),
       });
       
       if (response.ok) {
-        const { accessLink: link, accessKey: key, keySubmissionId: submissionId } = await response.json();
-        setAccessLink(link);
-        setAccessKey(key);
+        const { keySubmissionId: submissionId } = await response.json();
         setKeySubmissionId(submissionId);
         setCurrentStep("key-submission");
       }
     } catch (error) {
-      console.error('Failed to generate access link:', error);
+      console.error('Failed to request access:', error);
     }
   };
 
@@ -91,6 +109,22 @@ export default function Home() {
               <h1 className="text-xl font-medium text-gray-900">FlareBot</h1>
             </div>
             <div className="flex items-center space-x-4">
+              {isLoggedIn && verificationSession && (
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm text-gray-600">
+                    Welcome, {verificationSession.robloxUsername}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    onClick={handleLogout}
+                    className="text-gray-500 hover:text-red-600"
+                    data-testid="button-logout"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
+                </div>
+              )}
               <Button
                 variant="ghost"
                 onClick={() => setShowAdminLogin(true)}

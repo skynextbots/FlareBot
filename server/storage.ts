@@ -158,27 +158,6 @@ export class MemStorage implements IStorage {
       lastUpdated: new Date(),
     };
     this.botStatuses.set("FlareBot_V1", botStatus);
-
-    // Add more bots for variety
-    const additionalBots = [
-      { id: "speedbot-pro", name: "SpeedBot_Pro" },
-      { id: "autoplay-elite", name: "AutoPlay_Elite" },
-      { id: "skillbot-max", name: "SkillBot_Max" },
-      { id: "farmbot-ultra", name: "FarmBot_Ultra" }
-    ];
-
-    additionalBots.forEach(bot => {
-      const status: BotStatus = {
-        id: bot.id,
-        botName: bot.name,
-        isInUse: false,
-        currentUser: null,
-        sessionStartTime: null,
-        sessionEndTime: null,
-        lastUpdated: new Date(),
-      };
-      this.botStatuses.set(bot.name, status);
-    });
   }
 
   private initializeSystemStats() {

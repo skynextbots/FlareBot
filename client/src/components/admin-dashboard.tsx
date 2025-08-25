@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import { Users, Clock, Bot, Server, ArrowUp, Copy, ChevronLeft, ChevronRight, User, Key, Settings, Timer, Check, RefreshCw, Trash2, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { DashboardStats, Submission } from "@/lib/types";
@@ -22,17 +23,41 @@ const formatDate = (dateString: string) => {
 };
 
 export default function AdminDashboard() {
+  const [stats, setStats] = useState<DashboardStats>({
+    activeUsers: 0,
+    pendingVerifications: 0,
+    botConfigs: 0,
+    systemUptime: "99.9%",
+  });
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [adminLinks, setAdminLinks] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
 
-  const { data: dashboardData, isLoading, refetch } = useQuery<{
+  const { data: dashboardData, isLoading: isQueryLoading, refetch } = useQuery<{
     stats: DashboardStats;
     submissions: Submission[];
   }>({
     queryKey: ["/api/admin/dashboard"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Fetch dashboard data function
+  const fetchDashboardData = async () => {
+    const response = await fetch("/api/admin/dashboard");
+    if (response.ok) {
+      const data = await response.json();
+      setStats(data.stats);
+      setSubmissions(data.submissions);
+    }
+    setIsLoading(false);
+  };
+
+  // Use useEffect to fetch data on mount if not using @tanstack/react-query directly
+  // In this case, useQuery handles it, but we need a refetch function for manual triggers.
+  // The refetch function from useQuery is already available.
 
   const handleRefresh = () => {
     refetch();
@@ -109,6 +134,74 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleProvideLink = async (submissionId: string) => {
+    const link = adminLinks[submissionId];
+    if (!link) {
+      toast({
+        title: "Error",
+        description: "Please enter an access link.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/provide-link/${submissionId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accessLink: link }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Link Provided",
+          description: "Access link has been sent to the user.",
+        });
+        setAdminLinks(prev => ({...prev, [submissionId]: ''})); // Clear the input
+        refetch(); // Refresh data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to provide link');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleApproveKey = async (submissionId: string) => {
+    try {
+      const response = await fetch(`/api/admin/approve-key/${submissionId}`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Key Approved",
+          description: "User has been granted access to the game.",
+        });
+        refetch(); // Refresh data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to approve key');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'verified': return 'bg-success text-white';
@@ -139,7 +232,7 @@ export default function AdminDashboard() {
     return `${Math.floor(diffInMinutes / 1440)} days ago`;
   };
 
-  if (isLoading) {
+  if (isQueryLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
         <div className="text-center">

@@ -507,27 +507,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate access link and key
-  app.post("/api/generate-link/:sessionId", async (req, res) => {
+  // Request access from admin (updated system)
+  app.post("/api/request-access", async (req, res) => {
     try {
-      const session = await storage.getVerificationSession(req.params.sessionId);
+      const { sessionId } = req.body;
+
+      const session = await storage.getVerificationSession(sessionId);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      // Create key submission
+      // Create key submission in pending state (no link or key yet)
       const keySubmission = await storage.createKeySubmission({
         sessionId: session.id,
         submittedKey: null
       });
 
-      // Generate a unique access link (in production, this would be a real external service)
-      const linkId = Math.random().toString(36).substr(2, 16);
-      const accessLink = `https://flarebot-keys.com/access/${linkId}`;
-
       res.json({
-        accessLink,
-        accessKey: keySubmission.accessKey,
+        success: true,
+        message: "Request submitted to admin. Please wait for approval.",
         keySubmissionId: keySubmission.id
       });
     } catch (error) {
@@ -593,7 +591,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin approve key
+  // Admin provide access link
+  app.post("/api/admin/provide-link/:keySubmissionId", async (req, res) => {
+    try {
+      const { accessLink } = req.body;
+      
+      if (!accessLink) {
+        return res.status(400).json({ error: "Access link is required" });
+      }
+
+      const submission = await storage.getKeySubmission(req.params.keySubmissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Key submission not found" });
+      }
+
+      // Update submission with admin-provided link and generate access key
+      const updatedSubmission = await storage.updateKeySubmission(submission.id, {
+        adminApprovalTime: new Date(),
+        status: "link_provided"
+      });
+
+      // Also store the admin-provided link separately
+      await storage.updateKeySubmission(submission.id, {
+        submittedKey: accessLink // Temporarily store admin link here
+      });
+
+      res.json({
+        success: true,
+        message: "Access link provided to user"
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Admin approve key (after user submits the key from the link)
   app.post("/api/admin/approve-key/:keySubmissionId", async (req, res) => {
     try {
       const approvedSubmission = await storage.approveKeySubmission(req.params.keySubmissionId);
