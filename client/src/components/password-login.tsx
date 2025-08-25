@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -5,91 +6,66 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Shield, User, AlertTriangle } from "lucide-react";
+import { Loader2, Lock, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { VerificationSession } from "@/lib/types";
 
-const formSchema = z.object({
-  robloxUsername: z.string().min(1, "Username is required").max(20, "Username too long"),
+const loginSchema = z.object({
+  password: z.string().min(1, "Password is required"),
 });
 
-interface VerificationFormProps {
-  onSuccess: (session: VerificationSession) => void;
+interface PasswordLoginProps {
+  username: string;
+  onLoginSuccess: (session: VerificationSession) => void;
+  onBackToVerification: () => void;
 }
 
-export default function VerificationForm({ onSuccess }: VerificationFormProps) {
+export default function PasswordLogin({ username, onLoginSuccess, onBackToVerification }: PasswordLoginProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
-      robloxUsername: "",
+      password: "",
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // First check if user exists and has a password
-      const checkResponse = await apiRequest("POST", "/api/check-user", {
-        robloxUsername: values.robloxUsername,
-      });
-
-      if (checkResponse.ok) {
-        const checkData = await checkResponse.json();
-        
-        if (checkData.hasPassword) {
-          // User has existing account, trigger password login
-          onSuccess({
-            sessionId: '', // Will be set after login
-            verificationCode: '',
-            expiresAt: '',
-            robloxUsername: values.robloxUsername,
-            isVerified: false,
-            requiresPasswordLogin: true,
-          });
-          return;
-        }
-      }
-
-      // Continue with normal verification for new users
-      const response = await apiRequest("POST", "/api/verify-username", {
-        robloxUsername: values.robloxUsername,
+      const response = await apiRequest("POST", "/api/login", {
+        robloxUsername: username,
+        password: values.password,
       });
 
       if (response.ok) {
         const data = await response.json();
-        onSuccess({
+        onLoginSuccess({
           sessionId: data.sessionId,
           verificationCode: data.verificationCode,
           expiresAt: data.expiresAt,
           robloxUsername: data.robloxUsername,
-          isVerified: data.skipVerification || false,
+          isVerified: data.isVerified,
           skipVerification: data.skipVerification,
         });
         toast({
-          title: "Account verified!",
-          description: "Your Roblox username has been verified successfully.",
+          title: "Login Successful!",
+          description: "Welcome back! You've been logged in successfully.",
         });
       } else {
-        // Handle cases where the API returns an error status code
         const errorData = await response.json();
-        const errorMessage = errorData.error || "An error occurred during verification.";
-        setError(errorMessage);
+        setError(errorData.error || "Invalid credentials. Please try again.");
       }
     } catch (err: any) {
-      // Handle network errors or unexpected exceptions
-      const errorMessage = err.message.includes("not found") 
-        ? "Roblox username not found. Please check your username and try again."
-        : "An error occurred while verifying your account. Please try again.";
-      setError(errorMessage);
+      setError("An error occurred while logging in. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -98,28 +74,46 @@ export default function VerificationForm({ onSuccess }: VerificationFormProps) {
   return (
     <div className="max-w-md mx-auto">
       <Card className="shadow-md">
-        <CardContent className="pt-6">
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl font-bold text-gray-900">
+            Welcome Back, {username}!
+          </CardTitle>
+          <p className="text-sm text-gray-600">
+            Enter your password to continue
+          </p>
+        </CardHeader>
+        <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="robloxUsername"
+                name="password"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium text-gray-700">
-                      Roblox Username
+                      Password
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
                           {...field}
-                          placeholder="Enter your Roblox username"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
                           className="pr-10"
-                          data-testid="input-roblox-username"
                         />
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                          <User className="h-4 w-4 text-gray-400" />
-                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4 text-gray-500" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-gray-500" />
+                          )}
+                        </Button>
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -131,19 +125,27 @@ export default function VerificationForm({ onSuccess }: VerificationFormProps) {
                 type="submit"
                 disabled={isLoading}
                 className="w-full bg-primary hover:bg-primary-dark text-white"
-                data-testid="button-verify-account"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Checking account...
+                    Logging in...
                   </>
                 ) : (
                   <>
-                    <Shield className="mr-2 h-4 w-4" />
-                    Verify Account
+                    <Lock className="mr-2 h-4 w-4" />
+                    Login
                   </>
                 )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onBackToVerification}
+                className="w-full"
+              >
+                New User? Start Verification
               </Button>
             </form>
           </Form>

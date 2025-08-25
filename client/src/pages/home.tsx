@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import VerificationForm from "@/components/verification-form";
 import VerificationCode from "@/components/verification-code";
 import PasswordSet from "@/components/PasswordSet";
+import PasswordLogin from "@/components/password-login";
 import BotSelection from "@/components/bot-selection";
 import BotConfig from "@/components/bot-config";
 import AdminLogin from "@/components/admin-login";
@@ -17,7 +18,7 @@ import WebsiteAISystems from "@/components/website-ai-systems";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [currentStep, setCurrentStep] = useState<"verification" | "code" | "password" | "bot-selection" | "config" | "success" | "key-submission" | "game-access">("verification");
+  const [currentStep, setCurrentStep] = useState<"verification" | "password-login" | "code" | "password" | "bot-selection" | "config" | "key-submission" | "success">("verification");
   const [verificationSession, setVerificationSession] = useState<VerificationSession | null>(null);
   const [botConfig, setBotConfig] = useState<BotConfiguration | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -59,6 +60,11 @@ export default function Home() {
 
   const handleCodeVerified = () => {
     setCurrentStep("password");
+  };
+
+  const handlePasswordLoginSuccess = () => {
+    // Assuming successful password login should also lead to bot selection
+    setCurrentStep("bot-selection");
   };
 
   const handlePasswordSet = () => {
@@ -165,6 +171,23 @@ export default function Home() {
               </p>
             </div>
             <VerificationForm onSuccess={handleVerificationSuccess} />
+          </div>
+        )}
+
+        {currentStep === "password-login" && verificationSession && (
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Login with Password</h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Please enter your password to log in.
+              </p>
+            </div>
+            <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
+              <PasswordLogin
+                sessionId={verificationSession.sessionId}
+                onLoginSuccess={handlePasswordLoginSuccess}
+              />
+            </div>
           </div>
         )}
 

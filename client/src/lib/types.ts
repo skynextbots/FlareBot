@@ -5,6 +5,7 @@ export interface VerificationSession {
   robloxUsername: string;
   isVerified?: boolean;
   skipVerification?: boolean;
+  requiresPasswordLogin?: boolean;
 }
 
 export interface BotConfiguration {

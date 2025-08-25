@@ -203,12 +203,21 @@ export class MemStorage implements IStorage {
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
 
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const updated = { ...existing, ...updates };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user || !user.password) return false;
+
+    // In a real implementation, you would hash and compare passwords
+    // For this demo, we'll do a direct comparison
+    return user.password === password;
   }
 
   async getVerificationSession(id: string): Promise<VerificationSession | undefined> {

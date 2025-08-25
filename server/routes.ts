@@ -181,6 +181,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerNotificationRoutes(app);
   registerUserProfileRoutes(app);
   registerBotMonitoringRoutes(app);
+  // Check if user exists and has password
+  app.post("/api/check-user", async (req, res) => {
+    try {
+      const { robloxUsername } = req.body;
+
+      if (!robloxUsername) {
+        return res.status(400).json({ error: "Username is required" });
+      }
+
+      // Get client IP for rate limiting
+      const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+
+      // Check if username exists on Roblox
+      const userExists = await checkRobloxUserExists(robloxUsername, clientIp);
+      if (!userExists) {
+        return res.status(400).json({ error: "Roblox username not found" });
+      }
+
+      // Check if user already exists with password
+      const existingUser = await storage.getUserByUsername(robloxUsername);
+      if (existingUser && existingUser.isPasswordSet) {
+        return res.json({
+          hasPassword: true,
+          requiresLogin: true
+        });
+      }
+
+      res.json({
+        hasPassword: false,
+        requiresLogin: false
+      });
+    } catch (error) {
+      console.error('[Check User] Error:', error);
+      res.status(400).json({ error: "Invalid request data" });
+    }
+  });
+
+  // Login with password for existing users
+  app.post("/api/login", async (req, res) => {
+    try {
+      const { robloxUsername, password } = req.body;
+
+      if (!robloxUsername || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      const user = await storage.getUserByUsername(robloxUsername);
+      if (!user || !user.isPasswordSet) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Verify password
+      const isValidPassword = await storage.verifyPassword(user.id, password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Create session for logged in user
+      const session = await storage.createVerificationSession({ robloxUsername });
+      await storage.updateVerificationSession(session.id, { isVerified: true });
+
+      res.json({
+        sessionId: session.id,
+        verificationCode: session.verificationCode,
+        expiresAt: session.expiresAt,
+        robloxUsername: session.robloxUsername,
+        isVerified: true,
+        skipVerification: true
+      });
+    } catch (error) {
+      console.error('[Login] Error:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Verify Roblox username and create session
   app.post("/api/verify-username", async (req, res) => {
     try {
@@ -195,22 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Roblox username not found" });
       }
 
-      // Check if user already exists with password - but still require verification
-      const existingUser = await storage.getUserByUsername(robloxUsername);
-      if (existingUser && existingUser.isPasswordSet) {
-        // User has account but still needs to verify for security
-        const session = await storage.createVerificationSession({ robloxUsername });
-        
-        return res.json({
-          sessionId: session.id,
-          verificationCode: session.verificationCode,
-          expiresAt: session.expiresAt,
-          robloxUsername: session.robloxUsername,
-          hasExistingAccount: true, // Just inform frontend user has account
-        });
-      }
-
-      // Create verification session
+      // Create verification session for new users
       const session = await storage.createVerificationSession({ robloxUsername });
 
       res.json({
