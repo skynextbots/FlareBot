@@ -18,7 +18,7 @@ import WebsiteAISystems from "@/components/website-ai-systems";
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const [currentStep, setCurrentStep] = useState<"verification" | "password-login" | "code" | "password" | "bot-selection" | "config" | "key-submission" | "success">("verification");
+  const [currentStep, setCurrentStep] = useState<"verification" | "password-login" | "code" | "password" | "bot-selection" | "config" | "key-submission" | "success" | "game-access">("verification");
   const [verificationSession, setVerificationSession] = useState<VerificationSession | null>(null);
   const [botConfig, setBotConfig] = useState<BotConfiguration | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
