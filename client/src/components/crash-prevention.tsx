@@ -1,9 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Shield, AlertTriangle, CheckCircle, Activity } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 
 interface CrashPreventionProps {
   onSystemHealthChange: (health: number) => void;

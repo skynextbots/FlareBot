@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Bot, Users, Clock, CheckCircle, AlertTriangle } from "lucide-react";
 import type { BotStatus } from "@/lib/types";
 import { apiRequest } from "@/lib/api";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
