@@ -6,7 +6,7 @@ import {
   registerUserProfileRoutes, 
   registerBotMonitoringRoutes 
 } from "./routes-enhanced";
-import { storage } from "./storage";
+import { storage } from "./storage-factory";
 import { insertVerificationSessionSchema, insertBotConfigurationSchema, insertAdminSessionSchema, insertKeySubmissionSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -488,9 +488,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activeSessions = await storage.getActiveVerificationSessions();
 
       const stats = {
-        activeUsers: submissions.filter(s => s.status === 'verified').length,
-        pendingVerifications: submissions.filter(s => s.status === 'pending').length,
-        botConfigs: submissions.filter(s => s.game).length,
+        activeUsers: submissions.filter((s: any) => s.status === 'verified').length,
+        pendingVerifications: submissions.filter((s: any) => s.status === 'pending').length,
+        botConfigs: submissions.filter((s: any) => s.game).length,
         systemUptime: '99.9%',
       };
 

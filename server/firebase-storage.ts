@@ -107,14 +107,30 @@ export class FirebaseStorage implements IStorage {
 
   async createUser(user: InsertUser): Promise<User> {
     const docRef = doc(collection(db, 'users'));
-    const newUser = {
-      ...user,
+    const newUser: User = {
       id: docRef.id,
-      isPasswordSet: true
+      username: user.username,
+      password: user.password ?? null,
+      isPasswordSet: user.isPasswordSet ?? true,
+      verificationCode: user.verificationCode ?? null
     };
     
     await setDoc(docRef, newUser);
     return newUser;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const docRef = doc(db, 'users', id);
+    await updateDoc(docRef, updates);
+    return this.getUser(id);
+  }
+
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user || !user.password) return false;
+    // In a real implementation, you would hash and compare passwords
+    // For this demo, we'll do a direct comparison
+    return user.password === password;
   }
 
   // Verification session methods
@@ -151,8 +167,7 @@ export class FirebaseStorage implements IStorage {
         await this.createUser({
           username: session.robloxUsername,
           password: null,
-          isPasswordSet: false,
-          verificationCode: code
+          isPasswordSet: false
         });
       }
     }
@@ -419,6 +434,7 @@ export class FirebaseStorage implements IStorage {
       submittedKey: submission.submittedKey || null,
       accessKey,
       status: "pending",
+      keyStatus: "waiting_for_link",
       adminApprovalTime: null,
       gameAccessTime: null,
       nextIntentTime: null,

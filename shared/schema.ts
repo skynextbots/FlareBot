@@ -155,6 +155,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   isPasswordSet: true,
+  verificationCode: true,
 });
 
 export const insertVerificationSessionSchema = createInsertSchema(verificationSessions).pick({

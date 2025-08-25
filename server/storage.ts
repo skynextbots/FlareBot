@@ -20,6 +20,8 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  verifyPassword(userId: string, password: string): Promise<boolean>;
 
   // Verification session methods
   getVerificationSession(id: string): Promise<VerificationSession | undefined>;
@@ -104,6 +106,18 @@ export interface IStorage {
     recentSessions: number;
   }>;
 
+  // Admin methods
+  getAllSubmissions(): Promise<Array<{
+    id: string;
+    robloxUsername: string;
+    verificationCode: string;
+    isVerified: boolean;
+    game?: string;
+    mode?: string;
+    createdAt: Date;
+    status: 'pending' | 'verified' | 'failed';
+  }>>;
+
   // Maintenance methods
   createMaintenance(maintenance: InsertMaintenance): Promise<Maintenance>;
   getActiveMaintenance(): Promise<Maintenance[]>;
@@ -180,7 +194,8 @@ export class MemStorage implements IStorage {
       id: "admin-1",
       username: "admin",
       password: "admin123",
-      isPasswordSet: true
+      isPasswordSet: true,
+      verificationCode: null
     };
     this.users.set("admin-1", adminUser);
   }
@@ -197,7 +212,13 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id, isPasswordSet: true };
+    const user: User = { 
+      id,
+      username: insertUser.username,
+      password: insertUser.password ?? null,
+      isPasswordSet: insertUser.isPasswordSet ?? true, 
+      verificationCode: insertUser.verificationCode ?? null 
+    };
     this.users.set(id, user);
     return user;
   }
@@ -246,8 +267,7 @@ export class MemStorage implements IStorage {
         await this.createUser({
           username: session.robloxUsername,
           password: null,
-          isPasswordSet: false,
-          verificationCode: code
+          isPasswordSet: false
         });
       }
     }
@@ -439,6 +459,7 @@ export class MemStorage implements IStorage {
       submittedKey: submission.submittedKey || null,
       accessKey,
       status: "pending",
+      keyStatus: "waiting_for_link",
       adminApprovalTime: null,
       gameAccessTime: null,
       nextIntentTime: null,
