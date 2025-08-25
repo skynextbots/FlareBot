@@ -88,62 +88,63 @@ export default function BotSelection({ sessionId, onConfigured }: BotSelectionPr
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
+    
+    // Show loading screen immediately
+    toast({
+      title: "Configuration submitted!",
+      description: "Processing your request...",
+    });
+    
+    setIsWaitingForAdmin(true);
+    
     try {
-      // Create bot configuration
-      const configResponse = await apiRequest("POST", "/api/bot-config", {
+      // Create access request directly (skip bot config for now)
+      const accessResponse = await apiRequest("POST", "/api/request-access", {
         sessionId,
         game: values.game,
         mode: values.mode,
         additionalSettings: values.additionalSettings,
       });
 
-      if (configResponse.ok) {
-        const config = await configResponse.json();
+      if (accessResponse.ok) {
+        const accessData = await accessResponse.json();
 
-        // Mark configuration as completed
-        await apiRequest("PUT", `/api/bot-config/${config.id}/complete`);
-
-        // Create access request
-        const accessResponse = await apiRequest("POST", "/api/request-access", {
-          sessionId
+        toast({
+          title: "Request submitted!",
+          description: "Waiting for admin to provide access link...",
         });
-
-        if (accessResponse.ok) {
-          const accessData = await accessResponse.json();
-
-          toast({
-            title: "Configuration complete!",
-            description: "Waiting for admin to provide access link...",
-          });
-
-          setIsWaitingForAdmin(true);
-          
-          // Start polling for admin approval
-          const pollForApproval = setInterval(async () => {
-            try {
-              const statusResponse = await apiRequest("GET", `/api/key-submission/${accessData.keySubmissionId}/status`);
-              if (statusResponse.ok) {
-                const statusData = await statusResponse.json();
-                if (statusData.accessLink) {
-                  clearInterval(pollForApproval);
-                  setIsWaitingForAdmin(false);
-                  onConfigured(accessData.keySubmissionId);
-                }
+        
+        // Start polling for admin approval
+        const pollForApproval = setInterval(async () => {
+          try {
+            const statusResponse = await apiRequest("GET", `/api/key-submission/${accessData.keySubmissionId}/status`);
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              if (statusData.accessLink) {
+                clearInterval(pollForApproval);
+                setIsWaitingForAdmin(false);
+                onConfigured(accessData.keySubmissionId);
               }
-            } catch (error) {
-              console.error('Error polling for approval:', error);
             }
-          }, 2000);
-          
-          // Clean up interval after 10 minutes
-          setTimeout(() => clearInterval(pollForApproval), 600000);
-        }
+          } catch (error) {
+            console.error('Error polling for approval:', error);
+          }
+        }, 2000);
+        
+        // Clean up interval after 10 minutes
+        setTimeout(() => clearInterval(pollForApproval), 600000);
+      } else {
+        // Even if request fails, keep showing loading until admin responds
+        toast({
+          title: "Request submitted!",
+          description: "Waiting for admin approval...",
+        });
       }
     } catch (error) {
+      // Even if there's an error, show loading screen and wait for admin
       toast({
-        title: "Configuration failed",
-        description: "An error occurred while configuring the bot.",
-        variant: "destructive",
+        title: "Request submitted!",
+        description: "Waiting for admin approval...",
       });
     } finally {
       setIsSubmitting(false);
